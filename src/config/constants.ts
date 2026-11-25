@@ -1,5 +1,5 @@
 export const APP_CONFIG = {
-  name: "My Hidyo",
+  name: "My Hidya",
   fullName: "Mutabaah Yaumiyyah Santri Pesantren Hidayatullah Yogyakarta",
   pesantrenName: "Pesantren Hidayatullah Yogyakarta",
   shortName: "Nukhbah",
