@@ -22,7 +22,7 @@ export function PortalNav({ role }: { role: AppRole }) {
     <nav aria-label="Menu utama" className="fixed inset-x-0 bottom-0 z-20 flex gap-1 overflow-x-auto border-t border-border bg-card px-2 pt-1 pb-[max(.25rem,env(safe-area-inset-bottom))] md:static md:flex-col md:overflow-visible md:border-0 md:p-0">
       {items.map((item) => {
         const href = `/${item}`;
-        const active = pathname === href;
+        const active = pathname === href || pathname.startsWith(href + "/");
         const Icon = icons[item];
         return (
           <Link key={item} href={href} aria-current={active ? "page" : undefined}

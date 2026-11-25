@@ -2,7 +2,7 @@
 
 Mutabaah Yaumiyyah Santri Pesantren Nukhbah Jogja.
 
-Tahap 1 menyediakan login, profil dan role, navigasi sesuai role, layout responsif, serta tema terang dan gelap. Halaman operasional menampilkan ruang untuk modul yang akan dibangun pada tahap berikutnya. Aplikasi membaca role dan status akun dari PostgreSQL pada server. Akun Supabase yang belum memiliki profil aktif tidak dapat membuka ruang kerja.
+My Nukhbah Tahap 2 menyediakan master data santri, kelas, kamar, halaqah dan periode akademik melalui Dashboard Admin. Login, role, navigasi responsif serta tema terang dan gelap tersedia sejak Tahap 1.
 
 ## Struktur proyek
 
@@ -19,6 +19,7 @@ my-nukhbah/
 ├── src/
 │   ├── app/
 │   │   ├── (portal)/[section]/page.tsx
+│   │   ├── (portal)/admin/master/page.tsx
 │   │   ├── (portal)/layout.tsx
 │   │   ├── login/page.tsx
 │   │   ├── globals.css
@@ -32,6 +33,7 @@ my-nukhbah/
 │   │   ├── constants.ts
 │   │   └── site.ts
 │   ├── features/auth/
+│   ├── features/academic/
 │   ├── lib/
 │   └── middleware.ts
 ├── .env.example
@@ -67,13 +69,13 @@ Buka [http://localhost:3000](http://localhost:3000), lalu gunakan email dan kata
 | `SEED_DISPLAY_NAME` | Nama yang tampil pada aplikasi. |
 | `SEED_ROLE` | `ADMIN`, `KEPALA_ASRAMA`, `MUSYRIF`, atau `WALI_SANTRI`. |
 
-Ganti nilai seed dengan UID berbeda untuk setiap profil tambahan, lalu jalankan `pnpm prisma db seed` kembali. Seed mempertahankan role dan status profil yang sudah ada. Untuk mengubah profil yang sudah ada pada Tahap 1, gunakan Prisma Studio dari lingkungan admin tepercaya. File `.env` telah dikecualikan oleh Git. Auth menggunakan publishable key dan tidak memerlukan service key.
+Ganti nilai seed dengan UID berbeda untuk setiap profil tambahan, lalu jalankan `pnpm prisma db seed` kembali. Seed mempertahankan role dan status profil yang sudah ada. Untuk mengubah profil yang sudah ada gunakan Prisma Studio dari lingkungan admin tepercaya. File `.env` telah dikecualikan oleh Git. Auth menggunakan publishable key dan tidak memerlukan service key.
 
-## Akses Tahap 1
+## Akses portal
 
 | Role | Halaman awal | Menu yang tersedia |
 | --- | --- | --- |
-| Admin | Dashboard Admin | Dashboard, Asrama, Pembinaan, Portfolio, Kalender, Rekap Admin |
+| Admin | Dashboard Admin | Dashboard, Master Data (di dalam Dashboard), Asrama, Pembinaan, Portfolio, Kalender, Rekap Admin |
 | Kepala Asrama | Rekap Asrama | Asrama, Rekap Admin |
 | Musyrif / Guru Pengampu Quran | Ruang Pembinaan | Pembinaan, Asrama, Portfolio, Kalender |
 | Wali Santri | Portfolio Santri | Portfolio, Kalender |
@@ -84,23 +86,40 @@ Aturan akses halaman ada di `src/features/auth/permissions.ts` dan ditegakkan di
 
 Untuk mengganti logo, cukup ganti file di folder `public/` dengan nama yang sama. File `logo-pesantren.png` dipakai untuk tema terang, sedangkan `logo-pesantren-dark.png` untuk tema gelap. Komponen `Logo` memasang varian sesuai tema. Kop PDF pada Tahap 7 dapat menggunakan path logo terang dari `src/config/site.ts`.
 
-Buka `src/config/constants.ts`, ubah nilai yang diinginkan, simpan, lalu restart dev server atau redeploy. Ambil nilai target dari `APP_CONFIG` saat membuat komponen atau layanan terkait. Tahun ajaran dan semester di konfigurasi saat ini dipakai sebagai label awal.
+Buka `src/config/constants.ts`, ubah nilai yang diinginkan, simpan, lalu restart dev server atau redeploy. Ambil nilai target dari `APP_CONFIG` saat membuat komponen atau layanan terkait. Dashboard membaca tahun ajaran dan semester aktif dari database. Nilai tahun ajaran dan semester di konfigurasi hanya referensi pengaturan awal.
+
+## Upgrade dari Tahap 1
+
+Salin perubahan ke repo yang sama dan pertahankan riwayat commit, konfigurasi `.env`, serta logo yang sudah Anda ganti. Tambahkan migrasi baru di `prisma/migrations/` bersama perubahan skema Prisma. Cadangkan database tujuan sebelum migrasi.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm prisma migrate deploy
+pnpm dev
+```
+
+Jalankan migrasi pada database produksi sebelum deploy kode baru di Vercel. Jika akun Admin Tahap 1 sudah bisa masuk, Anda dapat memakai profil yang sama tanpa seed ulang. Jika repo Anda sudah memiliki pengaturan pnpm khusus untuk Vercel, pertahankan pengaturan tersebut beserta lockfile yang kompatibel.
 
 ## Cara Memulai Tahun Ajaran Baru
 
-Alur berikut mulai berlaku setelah model data periode (Tahap 2) dan menu Pengaturan Tahun Ajaran (Tahap 10) tersedia.
+1. Masuk sebagai Admin. Buka **Dashboard → Buka master data**.
+2. Buat tahun ajaran, misalnya **2026/2027**. Isi awal dan akhir Ganjil serta akhir Genap. Genap dimulai sehari setelah Ganjil berakhir. Kedua semester dibuat bersama dalam satu transaksi.
+3. Pilih semester pembuka, lalu tekan **Aktifkan semester ini**. Aktivasi awal menandai tahun ajaran dan semester dalam satu transaksi.
+4. Buat kelas, kamar dan halaqah. Jika diperlukan, pilih Musyrif kamar dan Guru Pengampu Quran dari profil aktif dengan role `MUSYRIF`.
+5. Tambahkan santri dengan NIS unik. Buka **Atur penempatan** pada nama santri, lalu pilih kelas, kamar atau halaqah dan simpan. Gunakan filter periode untuk meninjau penempatan semester lain.
 
-1. Masuk sebagai Admin dan buka **Pengaturan → Tahun Ajaran**.
-2. Buat tahun ajaran baru, tentukan tanggal periode, dan siapkan semester Ganjil/Genap.
-3. Tutup semester sebelumnya agar jurnal dan portfolio historis menjadi read-only.
-4. Aktifkan tahun ajaran dan semester baru. Rekap dan input memakai periode aktif sebagai filter awal.
-5. Gunakan **Naik Kelas / Pindah Kamar** untuk membuat penempatan periode baru dari data santri yang sama.
+Admin bisa menyiapkan periode berikutnya dan melihat periode lain melalui filter. Portal menggunakan semester aktif dari database. Penempatan dan kelompok di periode nonaktif tersedia dalam mode baca. **Penutupan semester, pergantian periode aktif, dan kenaikan kelas atau pindah kamar massal** mengikuti Tahap 10.
 
-Tahap 2 akan menambahkan model `AcademicYear` dan `Semester`. Gunakan penempatan santri yang terikat periode agar perpindahan kamar tidak mengubah histori. Modul kegiatan, Al-Quran, ekstra, reward, dan portfolio wajib menyimpan pasangan ID tahun ajaran dan semester yang valid. Rekap menggunakan periode data sumber. Keputusan periode input dan publikasi portfolio harus divalidasi di server.
+### Struktur data akademik
+
+- `Student` adalah identitas tetap. Koreksi nama dan NIS berlaku pada profil santri, termasuk ketika identitas yang sama ditampilkan bersama riwayat penempatan.
+- `Enrollment` menyimpan satu penempatan per santri per semester. Relasi gabungan memeriksa kesesuaian tahun ajaran, semester, serta kelas/kamar/halaqah dalam database.
+- Kelas, kamar dan halaqah berumur satu semester. Keanggotaan periode berikutnya harus dibuat di semester tujuan agar riwayat sebelumnya tetap utuh.
+- Modul jurnal, ekstra, reward dan portfolio mengikat data ke pasangan ID tahun ajaran dan semester. Rekap mengikuti periode data sumber. Saat membangun modul data, periksa penugasan staf dan relasi wali–santri pada setiap query dan tindakan server.
 
 ## GitHub dan Vercel
 
-1. Buat repository GitHub privat. Jika mulai dari ZIP, jalankan `git init -b main`, `git add .`, dan `git commit -m "Mulai My Nukhbah Tahap 1"`. Tambahkan URL remote repo pilihan Anda dan push.
+1. Buat repository GitHub privat. Jika mulai dari ZIP, jalankan `git init -b main`, `git add .`, dan `git commit -m "Tambahkan My Nukhbah Tahap 2"`. Tambahkan URL remote repo pilihan Anda dan push.
 2. Impor repo dari dashboard Vercel. Pilih Next.js dan Node.js 24. Salin empat variabel runtime dari tabel env ke pengaturan proyek, gunakan database terpisah untuk preview dan produksi.
 3. Dari terminal yang terhubung ke database tujuan, jalankan `pnpm prisma migrate deploy` dengan kredensial migrasi yang sesuai. Siapkan akun dan profil Admin memakai seed sebelum login.
 4. Deploy aplikasi. GitHub Actions menjalankan instalasi terkunci, type check, dan build tanpa kredensial produksi.
@@ -117,4 +136,4 @@ Tahap 2 akan menambahkan model `AcademicYear` dan `Semester`. Gunakan penempatan
 
 ## Modul berikutnya
 
-Tahap 2 memulai master data dan periode akademik. Jurnal asrama, jurnal Al-Quran, ekstra, rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage dan `@react-pdf/renderer` digunakan ketika upload dan PDF diimplementasikan.
+Tahap 3 mengimplementasikan jurnal asrama dari penempatan kamar pada semester aktif. Jurnal Al-Quran, ekstra, rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage dan `@react-pdf/renderer` digunakan ketika upload dan PDF diimplementasikan.

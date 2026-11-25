@@ -16,10 +16,112 @@ enum Role {
 }
 
 model Profile {
-  id          String   @id @db.Uuid
+  id          String    @id @db.Uuid
   displayName String
   role        Role
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  rooms       Room[]    @relation("RoomSupervisor")
+  halaqahs    Halaqah[] @relation("HalaqahTeacher")
+}
+
+enum SemesterName {
+  GANJIL
+  GENAP
+}
+
+model AcademicYear {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique @db.VarChar(9)
+  startDate DateTime   @db.Date
+  endDate   DateTime   @db.Date
+  isActive  Boolean    @default(false)
+  semesters Semester[]
+}
+
+model Semester {
+  id             String       @id @default(uuid()) @db.Uuid
+  academicYearId String       @db.Uuid
+  name           SemesterName
+  startDate      DateTime     @db.Date
+  endDate        DateTime     @db.Date
+  isActive       Boolean      @default(false)
+  closedAt       DateTime?
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  classrooms     Classroom[]
+  rooms          Room[]
+  halaqahs       Halaqah[]
+  enrollments    Enrollment[]
+
+  @@unique([academicYearId, name])
+  @@unique([academicYearId, id])
+}
+
+model Student {
+  id          String       @id @default(uuid()) @db.Uuid
+  nis         String       @unique @db.VarChar(32)
+  fullName    String       @db.VarChar(120)
+  enrollments Enrollment[]
+
+  @@index([fullName, id])
+}
+
+model Classroom {
+  id          String       @id @default(uuid()) @db.Uuid
+  semesterId  String       @db.Uuid
+  name        String       @db.VarChar(80)
+  semester    Semester     @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  enrollments Enrollment[]
+
+  @@unique([semesterId, name])
+  @@unique([semesterId, id])
+}
+
+model Room {
+  id           String       @id @default(uuid()) @db.Uuid
+  semesterId   String       @db.Uuid
+  name         String       @db.VarChar(80)
+  supervisorId String?      @db.Uuid
+  supervisor   Profile?     @relation("RoomSupervisor", fields: [supervisorId], references: [id], onDelete: Restrict)
+  semester     Semester     @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  enrollments  Enrollment[]
+
+  @@unique([semesterId, name])
+  @@unique([semesterId, id])
+  @@index([supervisorId, semesterId])
+}
+
+model Halaqah {
+  id          String       @id @default(uuid()) @db.Uuid
+  semesterId  String       @db.Uuid
+  name        String       @db.VarChar(80)
+  teacherId   String?      @db.Uuid
+  teacher     Profile?     @relation("HalaqahTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  semester    Semester     @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  enrollments Enrollment[]
+
+  @@unique([semesterId, name])
+  @@unique([semesterId, id])
+  @@index([teacherId, semesterId])
+}
+
+model Enrollment {
+  studentId      String     @db.Uuid
+  academicYearId String     @db.Uuid
+  semesterId     String     @db.Uuid
+  classroomId    String?    @db.Uuid
+  roomId         String?    @db.Uuid
+  halaqahId      String?    @db.Uuid
+  student        Student    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  semester       Semester   @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  classroom      Classroom? @relation(fields: [semesterId, classroomId], references: [semesterId, id], onDelete: Restrict)
+  room           Room?      @relation(fields: [semesterId, roomId], references: [semesterId, id], onDelete: Restrict)
+  halaqah        Halaqah?   @relation(fields: [semesterId, halaqahId], references: [semesterId, id], onDelete: Restrict)
+
+  @@id([semesterId, studentId])
+  @@index([studentId, semesterId])
+  @@index([semesterId, classroomId])
+  @@index([semesterId, roomId])
+  @@index([semesterId, halaqahId])
 }
