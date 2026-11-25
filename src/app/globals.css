@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --font-sans: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+}
+:root {
+  --background: #f5f7f7;
+  --foreground: #12263b;
+  --card: #ffffff;
+  --muted: #eaf2f1;
+  --muted-foreground: #526579;
+  --border: #dbe5e8;
+}
+.dark {
+  color-scheme: dark;
+  --background: #0c1624;
+  --foreground: #eef7fa;
+  --card: #142236;
+  --muted: #1b3044;
+  --muted-foreground: #aabfcc;
+  --border: #2d4358;
+}
+body { margin: 0; }
+button { cursor: pointer; }
+button:disabled { cursor: wait; }
+.mosque-panel { background: linear-gradient(145deg, #10243e 20%, #173756 62%, #136463 130%); }
+.mosque-art { pointer-events: none; position: absolute; inset: 0; overflow: hidden; }
+.mosque-art::before {
+  content: ""; position: absolute; right: 11%; top: 12%; width: 56px; height: 56px;
+  border-radius: 50%; box-shadow: -12px 8px 0 #e8ca8e; opacity: .7; transform: rotate(-12deg);
+}
+.mosque-art::after {
+  content: ""; position: absolute; right: 13%; bottom: -2px; width: min(34%, 220px); height: 43%;
+  border: 1px solid #83c8c85c; border-radius: 50% 50% 0 0 / 68% 68% 0 0;
+  background: linear-gradient(#83c8c825, #83c8c803); box-shadow: 0 0 0 14px #83c8c80d, 0 0 0 30px #83c8c807;
+}
