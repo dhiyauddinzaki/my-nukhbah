@@ -1,4 +1,4 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { APP_CONFIG } from "@/config/constants";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";

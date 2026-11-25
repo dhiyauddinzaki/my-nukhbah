@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "DormSession" AS ENUM ('TAHAJJUD', 'PAGI', 'SEKOLAH', 'SORE', 'KAJIAN_ADAB', 'MALAM');
 
 -- CreateEnum

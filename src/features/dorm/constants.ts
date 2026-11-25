@@ -1,4 +1,4 @@
-﻿export const dormSessions = [
+export const dormSessions = [
   { value: "TAHAJJUD", label: "Tahajjud", hasPhoto: false },
   { value: "PAGI", label: "Absen Pagi", hasPhoto: true },
   { value: "SEKOLAH", label: "Sekolah", hasPhoto: false },
