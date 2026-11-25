@@ -9,8 +9,8 @@ import { requireProfile } from "@/features/auth/session";
 
 const plannedContent: Record<Section, string[]> = {
   admin: ["Ringkasan operasional"],
-  asrama: ["Kelengkapan jurnal", "Rekap kegiatan per kamar"],
-  pembinaan: ["Jurnal kegiatan asrama", "Jurnal Al-Quran", "Tahfizh Intensif dan Tahsin UMMI", "Reward, pelanggaran, dan Mutamayyizun"],
+  asrama: ["Rekap kegiatan per kamar"],
+  pembinaan: ["Jurnal Al-Quran", "Tahfizh Intensif dan Tahsin UMMI", "Reward, pelanggaran, dan Mutamayyizun"],
   portfolio: ["Catatan perkembangan bulanan", "Unduh portfolio PDF"],
   kalender: ["Agenda akademik"],
   "rekap-admin": ["Rekap per musyrif", "Rekap per santri", "Grafik keseluruhan"],

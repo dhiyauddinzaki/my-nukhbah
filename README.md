@@ -2,7 +2,7 @@
 
 Mutabaah Yaumiyyah Santri Pesantren Nukhbah Jogja.
 
-My Nukhbah Tahap 2 menyediakan master data santri, kelas, kamar, halaqah dan periode akademik melalui Dashboard Admin. Login, role, navigasi responsif serta tema terang dan gelap tersedia sejak Tahap 1.
+My Nukhbah Tahap 3 menyediakan jurnal kegiatan asrama harian, termasuk kehadiran sesi, shalat fardhu, dan foto kegiatan per kamar. Master data santri, kelas, kamar, halaqah, serta periode akademik tersedia melalui Dashboard Admin. Login, role, navigasi responsif, dan tema terang/gelap tersedia sejak Tahap 1.
 
 ## Struktur proyek
 
@@ -134,6 +134,14 @@ Admin bisa menyiapkan periode berikutnya dan melihat periode lain melalui filter
 - **Prisma Client belum tergenerate**. Jalankan `pnpm prisma generate` setelah instalasi.
 - **Tema atau logo belum berubah**. Muat ulang halaman dan periksa nama file serta cache browser.
 
+## Jurnal Kegiatan Asrama (Tahap 3)
+
+- **Akses input**: Admin dan Musyrif/Guru Pengampu Quran dapat mengisi jurnal dari menu **Pembinaan**. Musyrif hanya dapat mengisi kamar yang ditugaskan pada semester aktif.
+- **Akses rekap**: Admin, Kepala Asrama, dan Musyrif dapat melihat kelengkapan jurnal harian per kamar dari menu **Asrama**.
+- **Data harian**: checklist kehadiran sesi (Tahajjud, Absen Pagi, Sekolah, Absen Sore, Kajian Adab, Absen Malam), status shalat fardhu (Muwafiq, JT, MF, Alpha, Izin, Sakit), dan foto Absen Pagi/Sore/Malam.
+- **Foto**: unggahan foto disimpan di Supabase Storage bucket `mutabaah`. Pastikan bucket tersebut tersedia di proyek Supabase.
+- **Periode**: jurnal terikat ke tahun ajaran dan semester aktif, serta hanya dapat diisi untuk tanggal dalam rentang semester aktif.
+
 ## Modul berikutnya
 
-Tahap 3 mengimplementasikan jurnal asrama dari penempatan kamar pada semester aktif. Jurnal Al-Quran, ekstra, rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage dan `@react-pdf/renderer` digunakan ketika upload dan PDF diimplementasikan.
+Tahap 4 mengimplementasikan jurnal Al-Quran (Ziyadah, Murajaah, Juziyyah). Ekstra, rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage digunakan untuk unggahan foto; `@react-pdf/renderer` digunakan ketika PDF diimplementasikan.
