@@ -185,32 +185,42 @@ enum TahfidzAssessment {
   LULUS
 }
 
+enum TahfidzFluencyGrade {
+  A
+  B
+  C
+  D
+}
+
 model TahfidzEntry {
-  id             String            @id @default(uuid()) @db.Uuid
-  academicYearId String            @db.Uuid
-  semesterId     String            @db.Uuid
-  halaqahId      String            @db.Uuid
-  studentId      String            @db.Uuid
-  date           DateTime          @db.Date
+  id             String               @id @default(uuid()) @db.Uuid
+  academicYearId String               @db.Uuid
+  semesterId     String               @db.Uuid
+  halaqahId      String               @db.Uuid
+  studentId      String               @db.Uuid
+  date           DateTime             @db.Date
   type           TahfidzType
-  fromSurah      String?           @db.VarChar(80)
+  fromSurah      String?              @db.VarChar(80)
   fromAyat       Int?
-  toSurah        String?           @db.VarChar(80)
+  toSurah        String?              @db.VarChar(80)
   toAyat         Int?
   lineCount      Int?
   juzNumber      Int?
-  assessment     TahfidzAssessment @default(BELUM_DINILAI)
+  fromPage       Int?
+  toPage         Int?
+  fluencyGrade   TahfidzFluencyGrade?
+  assessment     TahfidzAssessment    @default(BELUM_DINILAI)
   score          Int?
-  note           String?           @db.VarChar(500)
-  createdById    String            @db.Uuid
-  updatedById    String            @db.Uuid
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  semester       Semester          @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
-  halaqah        Halaqah           @relation(fields: [semesterId, halaqahId], references: [semesterId, id], onDelete: Restrict)
-  student        Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  createdBy      Profile           @relation("TahfidzEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy      Profile           @relation("TahfidzEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  note           String?              @db.VarChar(500)
+  createdById    String               @db.Uuid
+  updatedById    String               @db.Uuid
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  semester       Semester             @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  halaqah        Halaqah              @relation(fields: [semesterId, halaqahId], references: [semesterId, id], onDelete: Restrict)
+  student        Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  createdBy      Profile              @relation("TahfidzEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      Profile              @relation("TahfidzEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
 
   @@unique([semesterId, halaqahId, studentId, date, type])
   @@index([semesterId, halaqahId, date])

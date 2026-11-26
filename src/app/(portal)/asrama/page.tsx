@@ -7,6 +7,7 @@ import { canAccess } from "@/features/auth/permissions";
 import { requireProfile } from "@/features/auth/session";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
+import { tahfidzTypes } from "@/features/tahfidz/constants";
 
 function todayIso() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: APP_CONFIG.timeZone }).format(new Date());
@@ -27,6 +28,14 @@ export default async function AsramaPage({ searchParams }: {
     : period ? (todayIso() >= period.startDate.toISOString().slice(0, 10) && todayIso() <= period.endDate.toISOString().slice(0, 10) ? todayIso() : period.startDate.toISOString().slice(0, 10)) : rawDate;
   const weekStart = new Date(selectedDate + "T00:00:00.000Z");
   weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+  const formatDate = (date: Date) => new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
   const canSeeSensitiveRecaps = profile.role === "ADMIN" || profile.role === "KEPALA_ASRAMA";
 
   const rooms = period
@@ -96,7 +105,7 @@ export default async function AsramaPage({ searchParams }: {
     ? await db.tahfidzEntry.findMany({
         where: {
           semesterId: period.id,
-          date: new Date(selectedDate + "T00:00:00.000Z"),
+          date: weekStart,
           ...(profile.role === "MUSYRIF"
             ? { halaqah: { teacherId: profile.id } }
             : {}),
@@ -204,7 +213,7 @@ export default async function AsramaPage({ searchParams }: {
 
         {period && selectedView === "tahfidz" && (
           <div className="mt-4">
-            <h3 className="font-bold">Jurnal Tahfidz · {selectedDate}</h3>
+            <h3 className="font-bold">Jurnal Tahfizh · Pekan {formatDate(weekStart)} – {formatDate(weekEnd)}</h3>
             {halaqahs.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Belum ada halaqah dalam cakupan akses.</p> : (
               <ul className="mt-3 divide-y divide-border">
                 {halaqahs.map((halaqah) => {
@@ -215,14 +224,15 @@ export default async function AsramaPage({ searchParams }: {
                       <p className="text-sm text-muted-foreground">
                         {halaqah.teacher?.displayName ?? "Belum ada guru pengampu"} · {halaqah._count.enrollments} santri
                       </p>
-                      {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Belum ada jurnal Tahfidz pada tanggal ini.</p> : (
+                      {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Belum ada jurnal Tahfizh pada pekan ini.</p> : (
                         <ul className="mt-2 grid gap-2 sm:grid-cols-2">
                           {rows.map((entry) => (
                             <li key={entry.id} className="rounded-xl border border-border p-3 text-sm">
                               <p className="font-semibold">{entry.student.fullName}</p>
                               <p className="text-muted-foreground">
-                                {entry.type} · {entry.lineCount ? `${entry.lineCount} baris · ` : ""}
-                                {entry.juzNumber ? `Juz ${entry.juzNumber} · ` : ""}
+                                {tahfidzTypes.find((type) => type.value === entry.type)?.label ?? entry.type} · Juz {entry.juzNumber ?? "—"} · Hal {entry.fromPage ?? "—"}–{entry.toPage ?? "—"} ·
+                                {entry.lineCount ? ` ${entry.lineCount} baris · ` : ""}
+                                {entry.fluencyGrade ? `Nilai ${entry.fluencyGrade} · ` : ""}
                                 {entry.score != null ? `Nilai ${entry.score} · ` : ""}
                                 {entry.assessment}
                                 {entry.note ? ` · ${entry.note}` : ""}

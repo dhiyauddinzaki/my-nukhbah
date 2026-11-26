@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarDays, ClipboardCheck, MoonStar, ShieldCheck, Sunrise, Sunset } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExpandableCard } from "@/components/ui/expandable-card";
 import {
   adabCriteria,
   dailyActivities,
@@ -59,6 +61,17 @@ function PhotoField({ label, saved }: { label: string; saved: boolean }) {
   );
 }
 
+function isoWeekValue(weekStartDate: string) {
+  const date = new Date(`${weekStartDate}T00:00:00.000Z`);
+  const thursday = new Date(date);
+  thursday.setUTCDate(thursday.getUTCDate() + 3 - ((thursday.getUTCDay() + 6) % 7));
+  const jan4 = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 4));
+  const firstThursday = new Date(jan4);
+  firstThursday.setUTCDate(jan4.getUTCDate() + 3 - ((jan4.getUTCDay() + 6) % 7));
+  const week = 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * 86400000));
+  return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
 export function DormJournalForm({
   rooms,
   selectedRoomId,
@@ -66,6 +79,7 @@ export function DormJournalForm({
   minDate,
   maxDate,
   weekStartDate,
+  initialFrequency,
   students,
   presenceRows,
   tahajjudRows,
@@ -81,6 +95,7 @@ export function DormJournalForm({
   minDate: string;
   maxDate: string;
   weekStartDate: string;
+  initialFrequency: "daily" | "weekly";
   students: Student[];
   presenceRows: PresenceRow[];
   tahajjudRows: TahajjudRow[];
@@ -100,6 +115,7 @@ export function DormJournalForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [frequency, setFrequency] = useState<"daily" | "weekly">(initialFrequency);
   const [messages, setMessages] = useState<Record<string, { ok: boolean; message: string }>>({});
 
   const presenceInitial = Object.fromEntries(
@@ -209,7 +225,20 @@ export function DormJournalForm({
 
   return (
     <div className="mt-4 space-y-5">
-      <form action="/pembinaan" method="get" className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <nav className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-muted/50 p-1.5" aria-label="Periode jurnal asrama">
+        <button type="button" onClick={() => setFrequency("daily")} aria-pressed={frequency === "daily"}
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-bold transition ${frequency === "daily" ? "bg-card text-amber-800 shadow-sm dark:text-amber-300" : "text-muted-foreground"}`}>
+          <CalendarDays className="size-4" aria-hidden />Harian
+        </button>
+        <button type="button" onClick={() => setFrequency("weekly")} aria-pressed={frequency === "weekly"}
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-bold transition ${frequency === "weekly" ? "bg-card text-amber-800 shadow-sm dark:text-amber-300" : "text-muted-foreground"}`}>
+          <ClipboardCheck className="size-4" aria-hidden />Pekanan
+        </button>
+      </nav>
+
+      {frequency === "daily" && <>
+      <form action="/pembinaan" method="get" className="grid gap-3 rounded-2xl border border-amber-900/10 bg-amber-50/50 p-4 dark:bg-amber-950/15 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <input type="hidden" name="frequency" value="daily" />
         <label className="grid gap-1 text-sm font-semibold">
           Kamar
           <select name="room" defaultValue={selectedRoomId} className={fieldClass}>
@@ -217,13 +246,13 @@ export function DormJournalForm({
           </select>
         </label>
         <label className="grid gap-1 text-sm font-semibold">
-          Tanggal harian
+          Tanggal
           <input type="date" name="date" defaultValue={selectedDate} min={minDate} max={maxDate} className={fieldClass} required />
         </label>
         <Button type="submit" variant="outline">Tampilkan</Button>
       </form>
 
-      <section className={cardClass} aria-live="polite">
+      <section className={`${cardClass} border-l-4 border-l-amber-500`} aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="font-bold">Laporan kegiatan hari ini</h3>
@@ -241,11 +270,7 @@ export function DormJournalForm({
         <p className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">Belum ada santri yang ditempatkan di kamar ini.</p>
       ) : (
         <>
-          <section className={cardClass}>
-            <div>
-              <h3 className="font-bold">Kehadiran santri hari ini</h3>
-              <p className="text-sm text-muted-foreground">Keterangan opsional untuk santri yang tidak hadir. Data ini masuk Daftar Izin.</p>
-            </div>
+          <ExpandableCard icon={ShieldCheck} title="Kehadiran utama" subtitle="Status santri hari ini · keterangan opsional">
             <form onSubmit={(event) => saveDailyForm(event, {
               criterion: "presence",
               entries: students.map((student) => ({
@@ -299,13 +324,9 @@ export function DormJournalForm({
               <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan kehadiran"}</Button>
               {message("presence")}
             </form>
-          </section>
+          </ExpandableCard>
 
-          <section className={cardClass}>
-            <div>
-              <h3 className="font-bold">Tahajjud</h3>
-              <p className="text-sm text-muted-foreground">Isi Ya/Tidak per santri dan lampirkan satu foto kegiatan.</p>
-            </div>
+          <ExpandableCard icon={MoonStar} title="Tahajjud" subtitle="Ya/Tidak per santri · satu foto kegiatan">
             <form onSubmit={(event) => saveDailyForm(event, {
               criterion: "tahajjud",
               entries: students.map((student) => ({ studentId: student.id, completed: tahajjud[student.id] === "yes" })),
@@ -326,14 +347,12 @@ export function DormJournalForm({
               <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Kirim laporan Tahajjud"}</Button>
               {message("tahajjud")}
             </form>
-          </section>
+          </ExpandableCard>
 
-          {dailyActivities.map(({ value, label, photoLabel }) => (
-            <section key={value} className={cardClass}>
-              <div>
-                <h3 className="font-bold">{label}</h3>
-                <p className="text-sm text-muted-foreground">Status awal mengikuti kehadiran utama dan dapat diubah.</p>
-              </div>
+          {dailyActivities.map(({ value, label, photoLabel }) => {
+            const Icon = value === "PAGI" ? Sunrise : value === "SORE" ? Sunset : MoonStar;
+            return (
+            <ExpandableCard key={value} icon={Icon} title={label} subtitle="Status H/S/I/A · foto kerapian">
               <form onSubmit={(event) => saveDailyForm(event, {
                 criterion: "activity",
                 activity: value,
@@ -362,16 +381,35 @@ export function DormJournalForm({
                 <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : `Kirim ${label}`}</Button>
                 {message(value.toLowerCase())}
               </form>
-            </section>
-          ))}
+            </ExpandableCard>
+          );})}
+        </>
+      )}
+      </>}
 
-          <section className={cardClass}>
-            <div>
-              <h3 className="font-bold">Penilaian Adab · Huquq Sittah</h3>
-              <p className="text-sm text-muted-foreground">
-                Pekan {weekStartDate} sampai {weekEndDate.toISOString().slice(0, 10)} · nilai 1–10; nilai di bawah 8 wajib diberi keterangan.
+      {frequency === "weekly" && <>
+            <form action="/pembinaan" method="get" className="grid gap-3 rounded-2xl border border-amber-900/10 bg-amber-50/50 p-4 dark:bg-amber-950/15 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <input type="hidden" name="frequency" value="weekly" />
+              <label className="grid gap-1 text-sm font-semibold">
+                Kamar
+                <select name="room" defaultValue={selectedRoomId} className={fieldClass}>
+                  {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-semibold">
+                Pekan
+                <input type="week" name="week" defaultValue={isoWeekValue(weekStartDate)} className={fieldClass} required />
+              </label>
+              <Button type="submit" variant="outline">Tampilkan</Button>
+              <p className="text-xs text-muted-foreground sm:col-span-3">
+                {weekStartDate} – {weekEndDate.toISOString().slice(0, 10)}
               </p>
-            </div>
+            </form>
+          {students.length === 0 ? (
+            <p className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">Belum ada santri yang ditempatkan di kamar ini.</p>
+          ) : <>
+          <ExpandableCard icon={ShieldCheck} title="Penilaian Adab · Huquq Sittah" subtitle={`Pekan ${weekStartDate} – ${weekEndDate.toISOString().slice(0, 10)} · 6 hak`}>
+            <p className="mb-4 text-sm text-muted-foreground">Nilai 1–10; nilai di bawah 8 wajib disertai keterangan.</p>
             <form onSubmit={(event) => saveWeeklyForm(event, {
               criterion: "adab",
               entries: students.map((student) => ({
@@ -421,13 +459,9 @@ export function DormJournalForm({
               <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan penilaian pekanan"}</Button>
               {message("adab")}
             </form>
-          </section>
+          </ExpandableCard>
 
-          <section className={cardClass}>
-            <div>
-              <h3 className="font-bold">Poin Pelanggaran</h3>
-              <p className="text-sm text-muted-foreground">Total poin dihitung dari pengulangan × poin per kejadian.</p>
-            </div>
+          <ExpandableCard icon={ClipboardCheck} title="Poin Pelanggaran" subtitle="Total poin = pengulangan × poin per kejadian">
             <form onSubmit={(event) => saveWeeklyForm(event, {
               criterion: "violations",
               entries: violations.filter((row) => row.violationType.trim()).map((row) => ({
@@ -484,9 +518,9 @@ export function DormJournalForm({
               </div>
               {message("violations")}
             </form>
-          </section>
-        </>
-      )}
+          </ExpandableCard>
+          </>}
+      </>}
     </div>
   );
 }

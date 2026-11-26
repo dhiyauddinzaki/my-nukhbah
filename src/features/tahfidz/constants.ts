@@ -10,3 +10,5 @@ export const tahfidzAssessments = [
   { value: "PERLU_ULANG", label: "Perlu ulang" },
   { value: "LULUS", label: "Lulus" },
 ] as const;
+
+export const fluencyGrades = ["A", "B", "C", "D"] as const;

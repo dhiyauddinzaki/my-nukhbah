@@ -157,10 +157,9 @@ Migrasi `20261126000000_dorm_journal_criteria` menambah data kehadiran, pengirim
 ## Jurnal Al-Quran (Tahap 4)
 
 - **Akses input**: Admin dan Musyrif/Guru Pengampu Quran dapat mengisi jurnal dari menu **Pembinaan**. Musyrif dibatasi pada halaqah yang ditugaskan pada semester aktif.
-- **Ziyadah**: mencatat surah/ayat awal–akhir dan jumlah baris. Nilai default Ziyadah diambil dari `APP_CONFIG.defaultZiyadahTarget`.
-- **Murajaah**: mencatat surah/ayat awal–akhir, penilaian, dan keterangan bila perlu.
-- **Juziyyah**: mencatat nomor juz (1–30), nilai 0–100, penilaian, dan keterangan.
-- **Penilaian**: `Belum dinilai`, `Lancar`, `Perlu ulang`, atau `Lulus`. Penilaian Perlu Ulang wajib memiliki keterangan.
+- **Ziyadah**: mencatat juz, halaman awal–akhir, jumlah baris, serta nilai kelancaran A–D. Nilai default Ziyadah diambil dari `APP_CONFIG.defaultZiyadahTarget`.
+- **Murajaah**: mencatat juz, halaman awal–akhir, dan nilai kelancaran A–D. Target bulanan awal memakai `APP_CONFIG.defaultMurajaahTarget`.
+- **Juziyyah**: mencatat juz (1–30), halaman yang diuji, nilai ujian 0–100, dan kelancaran A–D.
 - **Riwayat**: 20 entri terakhir halaqah ditampilkan di form Pembinaan. Jurnal Tahfidz juga tampil pada rekap Asrama dan portfolio santri dalam cakupan role.
 - **Periode**: setiap entri terikat tahun ajaran, semester, halaqah, santri, dan tanggal; input dibatasi rentang semester aktif.
 
@@ -173,6 +172,22 @@ pnpm dev
 ```
 
 Migrasi `20261126010000_tahfidz_journal` menambah tabel jurnal Tahfidz dan tidak mengubah data Tahap 1–3.
+
+### Revisi UI dan pencatatan Tahap 4
+
+- Kartu input harian dan pekanan kini dipisahkan. Kartu kategori dimulai dalam keadaan ringkas dan dibuka lewat tombol **Isi**.
+- Tahfizh dipilih berdasarkan pekan Senin–Minggu. Kelengkapan laporan dihitung dari tiga kategori (Ziyadah, Murajaah, Juziyyah), masing-masing harus tersimpan untuk seluruh santri halaqah.
+- Posisi hafalan dicatat dengan Juz, halaman awal/akhir, jumlah baris, serta nilai kelancaran A–D. Target bulanan portfolio memakai `APP_CONFIG.defaultZiyadahTarget` dan `APP_CONFIG.defaultMurajaahTarget`.
+- Portfolio merangkum kehadiran, hafalan, Huquq Sittah, prestasi, dan pelanggaran dalam satu kartu dengan visual persentase.
+
+Jalankan migrasi revisi posisi hafalan/pekan:
+
+```powershell
+pnpm prisma migrate dev
+pnpm prisma generate
+```
+
+Migrasi `20261126020000_tahfidz_weekly_position` menambahkan kolom Juz/halaman dan nilai kelancaran tanpa menghapus kolom surah/ayat lama.
 
 ## Modul berikutnya
 

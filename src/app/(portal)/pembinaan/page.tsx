@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { CalendarDays } from "lucide-react";
+import { BookOpen, CalendarDays, House } from "lucide-react";
 import { APP_CONFIG } from "@/config/constants";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";
 import { DormJournalForm } from "@/features/dorm/journal-form";
@@ -13,13 +13,25 @@ function todayIso() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: APP_CONFIG.timeZone }).format(new Date());
 }
 
+function isoWeekStart(value: string) {
+  const match = /^(\d{4})-W(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const week = Number(match[2]);
+  if (week < 1 || week > 53) return null;
+  const januaryFourth = new Date(Date.UTC(year, 0, 4));
+  const monday = new Date(januaryFourth);
+  monday.setUTCDate(januaryFourth.getUTCDate() - ((januaryFourth.getUTCDay() + 6) % 7) + (week - 1) * 7);
+  return monday;
+}
+
 export default async function PembinaanPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const profile = await requireProfile();
   if (!canAccess(profile.role, "pembinaan")) notFound();
 
-  const { room: roomParam, halaqah: halaqahParam, date: dateParam } = await searchParams;
+  const { room: roomParam, halaqah: halaqahParam, date: dateParam, week: weekParam, frequency: frequencyParam } = await searchParams;
   const period = await getActiveSemester();
   const rooms = period
     ? await db.room.findMany({
@@ -53,7 +65,13 @@ export default async function PembinaanPage({ searchParams }: {
   const selectedDateObject = new Date(selectedDate + "T00:00:00.000Z");
   const weekStart = new Date(selectedDateObject);
   weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
-  const weekStartDate = weekStart.toISOString().slice(0, 10);
+  const requestedWeekStart = typeof weekParam === "string" ? isoWeekStart(weekParam) : null;
+  const requestedWeekEnd = requestedWeekStart ? new Date(requestedWeekStart) : null;
+  requestedWeekEnd?.setUTCDate(requestedWeekEnd.getUTCDate() + 6);
+  const requestedWeekInPeriod = !period || !requestedWeekStart || !requestedWeekEnd
+    || (requestedWeekEnd >= period.startDate && requestedWeekStart <= period.endDate);
+  const selectedWeekStart = requestedWeekStart && requestedWeekInPeriod ? requestedWeekStart : weekStart;
+  const selectedWeekStartDate = selectedWeekStart.toISOString().slice(0, 10);
 
   const students = period && selectedRoomId
     ? await db.enrollment.findMany({
@@ -79,7 +97,7 @@ export default async function PembinaanPage({ searchParams }: {
             semesterId_roomId_weekStartDate: {
               semesterId: period.id,
               roomId: selectedRoomId,
-              weekStartDate: new Date(weekStartDate + "T00:00:00.000Z"),
+              weekStartDate: new Date(selectedWeekStartDate + "T00:00:00.000Z"),
             },
           },
           include: { adabScores: true, violations: true },
@@ -97,8 +115,9 @@ export default async function PembinaanPage({ searchParams }: {
         where: {
           semesterId: period.id,
           halaqahId: selectedHalaqahId,
-          date: new Date(selectedDate + "T00:00:00.000Z"),
+          date: new Date(selectedWeekStartDate + "T00:00:00.000Z"),
         },
+        include: { student: { select: { fullName: true } } },
         orderBy: [{ student: { fullName: "asc" } }, { type: "asc" }],
       })
     : [];
@@ -122,9 +141,17 @@ export default async function PembinaanPage({ searchParams }: {
         </p>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
-        <h2 className="text-lg font-bold">Jurnal Kegiatan Asrama</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Isi kehadiran harian, pendampingan, dan foto kegiatan kamar.</p>
+      <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <header className="flex items-center gap-3 border-l-4 border-l-amber-500 bg-amber-50/70 p-4 dark:bg-amber-950/20 sm:p-5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+            <House className="size-5" aria-hidden />
+          </span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[.15em] text-amber-800 dark:text-amber-200">Asrama · pembinaan keseharian</p>
+            <h2 className="text-lg font-bold">Jurnal Asrama</h2>
+          </div>
+        </header>
+        <div className="space-y-4 p-4 sm:p-6">
 
         {!period && <p className="mt-4 text-sm text-muted-foreground">Belum ada semester aktif. Hubungi Admin untuk mengaktifkan periode.</p>}
         {period && rooms.length === 0 && (
@@ -134,13 +161,14 @@ export default async function PembinaanPage({ searchParams }: {
         )}
         {period && rooms.length > 0 && (
           <DormJournalForm
-            key={`${selectedRoomId}:${selectedDate}:${weekStartDate}`}
+            key={`${selectedRoomId}:${selectedDate}:${selectedWeekStartDate}`}
             rooms={rooms}
             selectedRoomId={selectedRoomId}
             selectedDate={selectedDate}
             minDate={period.startDate.toISOString().slice(0, 10)}
             maxDate={period.endDate.toISOString().slice(0, 10)}
-            weekStartDate={weekStartDate}
+            weekStartDate={selectedWeekStartDate}
+            initialFrequency={frequencyParam === "weekly" ? "weekly" : "daily"}
             students={students.map((e) => e.student)}
             presenceRows={journal?.dailyPresences.map((row) => ({ ...row })) ?? []}
             tahajjudRows={journal?.tahajjudAssessments ?? []}
@@ -164,10 +192,20 @@ export default async function PembinaanPage({ searchParams }: {
             }}
           />
         )}
+        </div>
       </section>
-      <section className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
-        <h2 className="text-lg font-bold">Jurnal Al-Quran</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Ziyadah, Murajaah, dan Ujian / Juziyyah per santri di halaqah.</p>
+      <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <header className="flex items-center gap-3 border-l-4 border-l-teal-600 bg-teal-50/70 p-4 dark:bg-teal-950/20 sm:p-5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
+            <BookOpen className="size-5" aria-hidden />
+          </span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[.15em] text-teal-800 dark:text-teal-200">Al-Quran · ziyadah & pemeliharaan hafalan</p>
+            <h2 className="text-lg font-bold">Jurnal Tahfizh</h2>
+          </div>
+        </header>
+        <div className="space-y-4 p-4 sm:p-6">
+        <p className="text-sm text-muted-foreground">Catat posisi hafalan per juz dan halaman untuk setiap pekan.</p>
         {!period && <p className="mt-4 text-sm text-muted-foreground">Belum ada semester aktif.</p>}
         {period && halaqahs.length === 0 && (
           <p className="mt-4 text-sm text-muted-foreground">
@@ -176,22 +214,19 @@ export default async function PembinaanPage({ searchParams }: {
         )}
         {period && halaqahs.length > 0 && (
           <TahfidzForm
-            key={`${selectedHalaqahId}:${selectedDate}`}
+            key={`${selectedHalaqahId}:${selectedWeekStartDate}`}
             halaqahs={halaqahs}
             selectedHalaqahId={selectedHalaqahId}
-            selectedDate={selectedDate}
-            minDate={period.startDate.toISOString().slice(0, 10)}
-            maxDate={period.endDate.toISOString().slice(0, 10)}
+            weekStartDate={selectedWeekStartDate}
             students={halaqahStudents.map((enrollment) => enrollment.student)}
             entries={tahfidzEntries.map((entry) => ({
               studentId: entry.studentId,
               type: entry.type,
-              fromSurah: entry.fromSurah,
-              fromAyat: entry.fromAyat,
-              toSurah: entry.toSurah,
-              toAyat: entry.toAyat,
               lineCount: entry.lineCount,
               juzNumber: entry.juzNumber,
+              fromPage: entry.fromPage,
+              toPage: entry.toPage,
+              fluencyGrade: entry.fluencyGrade,
               assessment: entry.assessment,
               score: entry.score,
               note: entry.note,
@@ -201,18 +236,19 @@ export default async function PembinaanPage({ searchParams }: {
               type: entry.type,
               date: entry.date,
               updatedAt: entry.updatedAt,
-              fromSurah: entry.fromSurah,
-              fromAyat: entry.fromAyat,
-              toSurah: entry.toSurah,
-              toAyat: entry.toAyat,
               lineCount: entry.lineCount,
               juzNumber: entry.juzNumber,
+              fromPage: entry.fromPage,
+              toPage: entry.toPage,
+              fluencyGrade: entry.fluencyGrade,
               assessment: entry.assessment,
               score: entry.score,
               note: entry.note,
+              student: entry.student,
             }))}
           />
         )}
+        </div>
       </section>
     </>
   );

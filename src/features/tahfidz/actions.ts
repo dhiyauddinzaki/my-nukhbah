@@ -17,15 +17,18 @@ const entrySchema = z.object({
   toSurah: z.string().trim().max(80).optional(),
   toAyat: z.number().int().min(1).optional(),
   lineCount: z.number().int().min(1).optional(),
-  juzNumber: z.number().int().min(1).max(30).optional(),
-  assessment: z.enum(["BELUM_DINILAI", "LANCAR", "PERLU_ULANG", "LULUS"]),
+  juzNumber: z.number().int().min(1).max(30),
+  fromPage: z.number().int().min(1),
+  toPage: z.number().int().min(1),
+  fluencyGrade: z.enum(["A", "B", "C", "D"]),
+  assessment: z.enum(["BELUM_DINILAI", "LANCAR", "PERLU_ULANG", "LULUS"]).default("BELUM_DINILAI"),
   score: z.number().int().min(0).max(100).optional(),
   note: z.string().trim().max(500).optional(),
 });
 
 const payloadSchema = z.object({
   halaqahId: uuid,
-  date: dateText,
+  weekStartDate: dateText,
   type: z.enum(["ZIYADAH", "MURAJAAH", "JUZIYYAH"]),
   entries: z.array(entrySchema),
 });
@@ -49,14 +52,17 @@ export async function saveTahfidzEntries(formData: FormData): Promise<{ ok: bool
 
   try {
     const payload = payloadSchema.parse(JSON.parse(raw));
-    const date = parseDate(payload.date);
+    const date = parseDate(payload.weekStartDate);
+    if (date.getUTCDay() !== 1) throw new InputError("Awal pekan jurnal harus hari Senin.");
     const semester = await db.semester.findFirst({
       where: { isActive: true, closedAt: null, academicYear: { isActive: true } },
       select: { id: true, academicYearId: true, startDate: true, endDate: true },
     });
     if (!semester) throw new InputError("Belum ada semester aktif.");
-    if (date < semester.startDate || date > semester.endDate) {
-      throw new InputError("Tanggal jurnal harus berada dalam rentang semester aktif.");
+    const weekEnd = new Date(date);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    if (weekEnd < semester.startDate || date > semester.endDate) {
+      throw new InputError("Pekan jurnal harus beririsan dengan semester aktif.");
     }
 
     const halaqah = await db.halaqah.findFirst({
@@ -87,8 +93,8 @@ export async function saveTahfidzEntries(formData: FormData): Promise<{ ok: bool
       if (payload.type === "ZIYADAH" && (!entry.lineCount || entry.lineCount < 1)) {
         throw new InputError("Jumlah baris Ziyadah wajib diisi untuk setiap santri.");
       }
-      if (payload.type === "JUZIYYAH" && (!entry.juzNumber || entry.juzNumber < 1 || entry.juzNumber > 30)) {
-        throw new InputError("Nomor juz Juziyyah wajib diisi.");
+      if (entry.toPage < entry.fromPage) {
+        throw new InputError("Halaman akhir harus sama dengan atau lebih besar dari halaman awal.");
       }
       if (entry.assessment === "PERLU_ULANG" && !entry.note) {
         throw new InputError("Keterangan wajib diisi untuk penilaian Perlu Ulang.");
@@ -118,6 +124,9 @@ export async function saveTahfidzEntries(formData: FormData): Promise<{ ok: bool
           toAyat: entry.toAyat ?? null,
           lineCount: entry.lineCount ?? null,
           juzNumber: entry.juzNumber ?? null,
+          fromPage: entry.fromPage,
+          toPage: entry.toPage,
+          fluencyGrade: entry.fluencyGrade,
           assessment: entry.assessment,
           score: entry.score ?? null,
           note: entry.note || null,

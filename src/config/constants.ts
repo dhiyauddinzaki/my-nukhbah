@@ -1,9 +1,10 @@
 export const APP_CONFIG = {
   name: "My Hidya",
-  fullName: "Mutabaah Yaumiyyah Santri Pesantren Hidayatullah Yogyakarta",
-  pesantrenName: "Pesantren Hidayatullah Yogyakarta",
-  shortName: "Nukhbah",
+  fullName: "Mutabaah Yaumiyyah Pesantren Hidayatullah Jogja",
+  pesantrenName: "Pesantren Hidayatullah Jogja",
+  shortName: "hHidayatullah",
   defaultZiyadahTarget: 5,
+  defaultMurajaahTarget: 1,
   defaultTahfizhIntensifTarget: 1,
   currentAcademicYear: "2026/2027",
   currentSemester: "Ganjil",
