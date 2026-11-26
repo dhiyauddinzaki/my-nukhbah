@@ -122,7 +122,7 @@ Admin bisa menyiapkan periode berikutnya dan melihat periode lain melalui filter
 1. Buat repository GitHub privat. Jika mulai dari ZIP, jalankan `git init -b main`, `git add .`, dan `git commit -m "Tambahkan My Nukhbah Tahap 2"`. Tambahkan URL remote repo pilihan Anda dan push.
 2. Impor repo dari dashboard Vercel. Pilih Next.js dan Node.js 24. Salin empat variabel runtime dari tabel env ke pengaturan proyek, gunakan database terpisah untuk preview dan produksi.
 3. Dari terminal yang terhubung ke database tujuan, jalankan `pnpm prisma migrate deploy` dengan kredensial migrasi yang sesuai. Siapkan akun dan profil Admin memakai seed sebelum login.
-4. Deploy aplikasi. GitHub Actions menjalankan instalasi terkunci, type check, dan build tanpa kredensial produksi.
+4. Deploy aplikasi. Perintah build menjalankan `prisma generate` sebelum Next.js memeriksa tipe agar Prisma Client selalu mengikuti `prisma/schema.prisma`. GitHub Actions menjalankan instalasi terkunci, type check, dan build tanpa kredensial produksi.
 
 ## Upgrade, backup, dan troubleshooting
 
