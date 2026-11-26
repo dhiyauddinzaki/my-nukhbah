@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Hidden, Select, card } from "@/features/academic/master-fields";
 import { MasterForm } from "@/features/academic/master-form";
 import { GroupPanel } from "@/features/academic/master-groups";
+import { ExtraGroupPanel } from "@/features/academic/extra-groups";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";
 import { AssignmentForm, StudentForm } from "@/features/academic/student-forms";
 import { requireProfile } from "@/features/auth/session";
@@ -45,7 +46,7 @@ export default async function MasterPage({ searchParams }: {
       ],
     }),
   };
-  const [total, classrooms, rooms, halaqahs, staff] = await Promise.all([
+  const [total, classrooms, rooms, halaqahs, staff, extraGroups, extraStudents] = await Promise.all([
     db.student.count({ where }),
     semesterId ? db.classroom.findMany({ where: { semesterId }, orderBy: { name: "asc" } }) : [],
     semesterId ? db.room.findMany({ where: { semesterId }, include: { supervisor: { select: { id: true, displayName: true } } }, orderBy: { name: "asc" } }) : [],
@@ -54,6 +55,19 @@ export default async function MasterPage({ searchParams }: {
       where: { role: "MUSYRIF", isActive: true },
       select: { id: true, displayName: true },
       orderBy: { displayName: "asc" },
+    }) : [],
+    semesterId ? db.extraHalaqah.findMany({
+      where: { semesterId },
+      include: {
+        teacher: { select: { id: true, displayName: true } },
+        members: { include: { student: { select: { id: true, nis: true, fullName: true } } } },
+      },
+      orderBy: [{ program: "asc" }, { name: "asc" }],
+    }) : [],
+    editable ? db.student.findMany({
+      select: { id: true, nis: true, fullName: true },
+      orderBy: [{ fullName: "asc" }, { id: "asc" }],
+      take: 2000,
     }) : [],
   ]);
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
@@ -67,6 +81,10 @@ export default async function MasterPage({ searchParams }: {
       enrollments: {
         where: semesterId ? { semesterId } : { OR: [] },
         include: { classroom: true, room: true, halaqah: true },
+      },
+      extraAssignments: {
+        where: semesterId ? { semesterId } : { OR: [] },
+        include: { group: true },
       },
     },
   });
@@ -131,6 +149,34 @@ export default async function MasterPage({ searchParams }: {
           <GroupPanel kind="halaqah" groups={halaqahs.map((halaqah) => ({ ...halaqah, staff: halaqah.teacher }))} {...{ semesterId, staff, editable }} />
         </div>
       )}
+      {semesterId && (
+        <section className={card}>
+          <div>
+            <h2 className="text-xl font-bold">Program ekstra dan anggota</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Atur halaqah khusus, Muhaffizh, dan roster santri secara terpisah dari halaqah reguler.
+            </p>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <ExtraGroupPanel
+              semesterId={semesterId}
+              program="TAHFIZH_INTENSIF"
+              groups={extraGroups.filter((group) => group.program === "TAHFIZH_INTENSIF")}
+              staff={staff}
+              students={extraStudents}
+              editable={editable}
+            />
+            <ExtraGroupPanel
+              semesterId={semesterId}
+              program="TAHSIN_UMMI"
+              groups={extraGroups.filter((group) => group.program === "TAHSIN_UMMI")}
+              staff={staff}
+              students={extraStudents}
+              editable={editable}
+            />
+          </div>
+        </section>
+      )}
       <section className={card}>
         <h2 className="text-lg font-bold">Santri dan penempatan <span className="text-sm font-normal text-muted-foreground">({total})</span></h2>
         {(editable || !semesterId) && (
@@ -148,12 +194,13 @@ export default async function MasterPage({ searchParams }: {
         <ul className="divide-y divide-border">
           {students.map((student) => {
             const assignment = student.enrollments[0];
+            const extraAssignment = student.extraAssignments[0];
             return (
               <li key={student.id} className="space-y-2 py-4">
                 <p className="font-semibold">{student.fullName}</p>
                 <p className="text-sm text-muted-foreground">NIS {student.nis}{assignment
                   ? ` · Kelas ${assignment.classroom?.name ?? "—"} · Kamar ${assignment.room?.name ?? "—"} · Halaqah ${assignment.halaqah?.name ?? "—"}`
-                  : " · Belum ada penempatan"}</p>
+                  : " · Belum ada penempatan"}{extraAssignment ? ` · Ekstra ${extraAssignment.group.name}` : ""}</p>
                 {(editable || !semesterId) && (
                   <details>
                     <summary className="cursor-pointer py-1 text-sm text-muted-foreground">Ubah identitas</summary>

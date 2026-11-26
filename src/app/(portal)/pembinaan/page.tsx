@@ -53,6 +53,12 @@ export default async function PembinaanPage({ searchParams }: {
         select: { id: true, name: true },
       })
     : [];
+  const intensiveStudentIds = period
+      ? (await db.extraStudentAssignment.findMany({
+          where: { semesterId: period.id, program: "TAHFIZH_INTENSIF" },
+          select: { studentId: true },
+        })).map(({ studentId }) => studentId)
+      : [];
 
   const requestedRoom = typeof roomParam === "string" && z.string().uuid().safeParse(roomParam).success ? roomParam : "";
   const selectedRoomId = rooms.some((r) => r.id === requestedRoom) ? requestedRoom : rooms[0]?.id ?? "";
@@ -105,7 +111,11 @@ export default async function PembinaanPage({ searchParams }: {
     : null;
   const halaqahStudents = period && selectedHalaqahId
     ? await db.enrollment.findMany({
-        where: { semesterId: period.id, halaqahId: selectedHalaqahId },
+        where: {
+          semesterId: period.id,
+          halaqahId: selectedHalaqahId,
+          studentId: { notIn: intensiveStudentIds },
+        },
         include: { student: { select: { id: true, nis: true, fullName: true } } },
         orderBy: { student: { fullName: "asc" } },
       })

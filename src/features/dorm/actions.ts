@@ -38,8 +38,7 @@ const adabKeys = [
   "haqLinafsih", "haqLisyaikhih", "haqLizamilih",
   "haqLilMakan", "haqLilKitab", "haqLilIlm",
 ] as const;
-const adabEntry = z.object({
-  studentId: uuid,
+const adabFields = {
   haqLinafsih: z.number().int().min(1).max(10),
   haqLinafsihNote: z.string().max(500),
   haqLisyaikhih: z.number().int().min(1).max(10),
@@ -52,7 +51,11 @@ const adabEntry = z.object({
   haqLilKitabNote: z.string().max(500),
   haqLilIlm: z.number().int().min(1).max(10),
   haqLilIlmNote: z.string().max(500),
-});
+};
+const adabEntry = z.discriminatedUnion("clear", [
+  z.object({ studentId: uuid, clear: z.literal(true) }),
+  z.object({ studentId: uuid, clear: z.literal(false), ...adabFields }),
+]);
 const weeklySchema = z.discriminatedUnion("criterion", [
   z.object({
     criterion: z.literal("adab"),
@@ -347,31 +350,35 @@ export async function saveDormWeeklyCriterion(formData: FormData): Promise<{ ok:
     if (payload.criterion === "adab") {
       validateRoster(payload.entries, scope.rosterIds);
       for (const entry of payload.entries) {
+        if (entry.clear) continue;
         for (const key of adabKeys) {
           if (entry[key] < 8 && !entry[`${key}Note`].trim()) {
             throw new InputError("Keterangan wajib diisi untuk nilai adab di bawah 8.");
           }
         }
       }
-      await db.$transaction([
-        db.dormWeeklyAdabScore.deleteMany({ where: { reviewId: review.id } }),
-        db.dormWeeklyAdabScore.createMany({
-          data: payload.entries.map((entry) => ({
-            ...entry,
-            haqLinafsihNote: entry.haqLinafsihNote.trim() || null,
-            haqLisyaikhihNote: entry.haqLisyaikhihNote.trim() || null,
-            haqLizamilihNote: entry.haqLizamilihNote.trim() || null,
-            haqLilMakanNote: entry.haqLilMakanNote.trim() || null,
-            haqLilKitabNote: entry.haqLilKitabNote.trim() || null,
-            haqLilIlmNote: entry.haqLilIlmNote.trim() || null,
-            reviewId: review.id,
-          })),
-        }),
-        db.dormWeeklyReview.update({
+      await db.$transaction(async (tx) => {
+        await tx.dormWeeklyAdabScore.deleteMany({ where: { reviewId: review.id } });
+        const entries = payload.entries.filter((entry) => !entry.clear);
+        if (entries.length > 0) {
+          await tx.dormWeeklyAdabScore.createMany({
+            data: entries.map((entry) => ({
+              ...entry,
+              haqLinafsihNote: entry.haqLinafsihNote.trim() || null,
+              haqLisyaikhihNote: entry.haqLisyaikhihNote.trim() || null,
+              haqLizamilihNote: entry.haqLizamilihNote.trim() || null,
+              haqLilMakanNote: entry.haqLilMakanNote.trim() || null,
+              haqLilKitabNote: entry.haqLilKitabNote.trim() || null,
+              haqLilIlmNote: entry.haqLilIlmNote.trim() || null,
+              reviewId: review.id,
+            })),
+          });
+        }
+        await tx.dormWeeklyReview.update({
           where: { id: review.id },
           data: { adabSubmittedAt: submittedAt, updatedById: scope.profile.id },
-        }),
-      ]);
+        });
+      });
     } else {
       const roster = new Set(scope.rosterIds);
       if (payload.entries.some((entry) => !roster.has(entry.studentId))) {

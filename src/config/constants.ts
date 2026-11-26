@@ -6,6 +6,8 @@ export const APP_CONFIG = {
   defaultZiyadahTarget: 5,
   defaultMurajaahTarget: 1,
   defaultTahfizhIntensifTarget: 1,
+  defaultIntensiveWeeklyTargetPages: 5,
+  intensiveSemesterTargetPages: 60,
   currentAcademicYear: "2026/2027",
   currentSemester: "Ganjil",
   supportWhatsApp: "628xxxxxxxxxx",

@@ -16,22 +16,27 @@ enum Role {
 }
 
 model Profile {
-  id                    String             @id @db.Uuid
-  displayName           String
-  role                  Role
-  isActive              Boolean            @default(true)
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  rooms                 Room[]             @relation("RoomSupervisor")
-  halaqahs              Halaqah[]          @relation("HalaqahTeacher")
-  createdJournals       DormJournal[]      @relation("DormJournalCreatedBy")
-  updatedJournals       DormJournal[]      @relation("DormJournalUpdatedBy")
-  createdWeeklyReviews  DormWeeklyReview[] @relation("WeeklyReviewCreatedBy")
-  updatedWeeklyReviews  DormWeeklyReview[] @relation("WeeklyReviewUpdatedBy")
-  createdTahfidzEntries TahfidzEntry[]     @relation("TahfidzEntryCreatedBy")
-  updatedTahfidzEntries TahfidzEntry[]     @relation("TahfidzEntryUpdatedBy")
-  createdExtraEntries   ExtraWeeklyEntry[] @relation("ExtraEntryCreatedBy")
-  updatedExtraEntries   ExtraWeeklyEntry[] @relation("ExtraEntryUpdatedBy")
+  id                      String                  @id @db.Uuid
+  displayName             String
+  role                    Role
+  isActive                Boolean                 @default(true)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  rooms                   Room[]                  @relation("RoomSupervisor")
+  halaqahs                Halaqah[]               @relation("HalaqahTeacher")
+  createdJournals         DormJournal[]           @relation("DormJournalCreatedBy")
+  updatedJournals         DormJournal[]           @relation("DormJournalUpdatedBy")
+  createdWeeklyReviews    DormWeeklyReview[]      @relation("WeeklyReviewCreatedBy")
+  updatedWeeklyReviews    DormWeeklyReview[]      @relation("WeeklyReviewUpdatedBy")
+  createdTahfidzEntries   TahfidzEntry[]          @relation("TahfidzEntryCreatedBy")
+  updatedTahfidzEntries   TahfidzEntry[]          @relation("TahfidzEntryUpdatedBy")
+  createdExtraEntries     ExtraWeeklyEntry[]      @relation("ExtraEntryCreatedBy")
+  updatedExtraEntries     ExtraWeeklyEntry[]      @relation("ExtraEntryUpdatedBy")
+  extraHalaqahs           ExtraHalaqah[]          @relation("ExtraHalaqahTeacher")
+  createdIntensiveEntries TahfizhIntensiveEntry[] @relation("IntensiveEntryCreatedBy")
+  updatedIntensiveEntries TahfizhIntensiveEntry[] @relation("IntensiveEntryUpdatedBy")
+  createdUmmiEntries      UmmiWeeklyEntry[]       @relation("UmmiEntryCreatedBy")
+  updatedUmmiEntries      UmmiWeeklyEntry[]       @relation("UmmiEntryUpdatedBy")
 }
 
 enum SemesterName {
@@ -49,22 +54,26 @@ model AcademicYear {
 }
 
 model Semester {
-  id             String             @id @default(uuid()) @db.Uuid
-  academicYearId String             @db.Uuid
-  name           SemesterName
-  startDate      DateTime           @db.Date
-  endDate        DateTime           @db.Date
-  isActive       Boolean            @default(false)
-  closedAt       DateTime?
-  academicYear   AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-  classrooms     Classroom[]
-  rooms          Room[]
-  halaqahs       Halaqah[]
-  enrollments    Enrollment[]
-  dormJournals   DormJournal[]
-  weeklyReviews  DormWeeklyReview[]
-  tahfidzEntries TahfidzEntry[]
-  extraEntries   ExtraWeeklyEntry[]
+  id               String                   @id @default(uuid()) @db.Uuid
+  academicYearId   String                   @db.Uuid
+  name             SemesterName
+  startDate        DateTime                 @db.Date
+  endDate          DateTime                 @db.Date
+  isActive         Boolean                  @default(false)
+  closedAt         DateTime?
+  academicYear     AcademicYear             @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  classrooms       Classroom[]
+  rooms            Room[]
+  halaqahs         Halaqah[]
+  enrollments      Enrollment[]
+  dormJournals     DormJournal[]
+  weeklyReviews    DormWeeklyReview[]
+  tahfidzEntries   TahfidzEntry[]
+  extraEntries     ExtraWeeklyEntry[]
+  extraHalaqahs    ExtraHalaqah[]
+  extraAssignments ExtraStudentAssignment[]
+  intensiveEntries TahfizhIntensiveEntry[]
+  ummiEntries      UmmiWeeklyEntry[]
 
   @@unique([academicYearId, name])
   @@unique([academicYearId, id])
@@ -84,6 +93,9 @@ model Student {
   dormViolations      DormViolation[]
   tahfidzEntries      TahfidzEntry[]
   extraEntries        ExtraWeeklyEntry[]
+  extraAssignments    ExtraStudentAssignment[]
+  intensiveEntries    TahfizhIntensiveEntry[]
+  ummiEntries         UmmiWeeklyEntry[]
 
   @@index([fullName, id])
 }
@@ -202,6 +214,12 @@ enum ExtraProgram {
   TAHSIN_UMMI
 }
 
+enum IntensiveEntryType {
+  ZIYADAH
+  MURAJAAH
+  TASMI
+}
+
 enum UmmiLevel {
   PRA_TAHSIN
   JILID_1
@@ -213,6 +231,20 @@ enum UmmiLevel {
   GHARIB
   TAJWID
   AL_QURAN
+}
+
+enum UmmiStage {
+  JILID_1
+  JILID_2
+  JILID_3
+  GHARIB
+  TAJWID
+  AL_QURAN
+}
+
+enum UmmiEntryType {
+  LEARNING
+  EXAM
 }
 
 model TahfidzEntry {
@@ -278,6 +310,112 @@ model ExtraWeeklyEntry {
 
   @@unique([semesterId, halaqahId, studentId, weekStartDate, program])
   @@index([semesterId, halaqahId, weekStartDate, program])
+  @@index([studentId, weekStartDate])
+}
+
+model ExtraHalaqah {
+  id               String                   @id @default(uuid()) @db.Uuid
+  semesterId       String                   @db.Uuid
+  program          ExtraProgram
+  name             String                   @db.VarChar(80)
+  teacherId        String                   @db.Uuid
+  semester         Semester                 @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  teacher          Profile                  @relation("ExtraHalaqahTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  members          ExtraStudentAssignment[]
+  intensiveEntries TahfizhIntensiveEntry[]
+  ummiEntries      UmmiWeeklyEntry[]
+
+  @@unique([semesterId, program, name])
+  @@unique([semesterId, id])
+  @@unique([semesterId, program, id])
+  @@unique([semesterId, program, teacherId])
+  @@index([teacherId, semesterId, program])
+}
+
+model ExtraStudentAssignment {
+  academicYearId String       @db.Uuid
+  semesterId     String       @db.Uuid
+  program        ExtraProgram
+  groupId        String       @db.Uuid
+  studentId      String       @db.Uuid
+  semester       Semester     @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  group          ExtraHalaqah @relation(fields: [semesterId, program, groupId], references: [semesterId, program, id], onDelete: Restrict)
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@id([semesterId, studentId])
+  @@index([semesterId, program, groupId])
+  @@index([studentId, semesterId])
+}
+
+model TahfizhIntensiveEntry {
+  id             String             @id @default(uuid()) @db.Uuid
+  academicYearId String             @db.Uuid
+  semesterId     String             @db.Uuid
+  program        ExtraProgram       @default(TAHFIZH_INTENSIF)
+  groupId        String             @db.Uuid
+  studentId      String             @db.Uuid
+  weekStartDate  DateTime           @db.Date
+  type           IntensiveEntryType
+  pagesCompleted Int?
+  juzNumber      Int?
+  fromPage       Int?
+  toPage         Int?
+  isMurajaahWeek Boolean            @default(false)
+  jadid          Boolean?
+  qadim          Boolean?
+  note           String?            @db.VarChar(500)
+  createdById    String             @db.Uuid
+  updatedById    String             @db.Uuid
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  semester       Semester           @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  group          ExtraHalaqah       @relation(fields: [semesterId, program, groupId], references: [semesterId, program, id], onDelete: Restrict)
+  student        Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  tasmiScores    TasmiJuzScore[]
+  createdBy      Profile            @relation("IntensiveEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      Profile            @relation("IntensiveEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([semesterId, groupId, studentId, weekStartDate, type])
+  @@index([semesterId, groupId, weekStartDate, type])
+  @@index([studentId, weekStartDate])
+}
+
+model TasmiJuzScore {
+  id        String                @id @default(uuid()) @db.Uuid
+  entryId   String                @db.Uuid
+  juzNumber Int
+  grade     TahfidzFluencyGrade
+  entry     TahfizhIntensiveEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, juzNumber])
+}
+
+model UmmiWeeklyEntry {
+  id             String               @id @default(uuid()) @db.Uuid
+  academicYearId String               @db.Uuid
+  semesterId     String               @db.Uuid
+  program        ExtraProgram         @default(TAHSIN_UMMI)
+  groupId        String               @db.Uuid
+  studentId      String               @db.Uuid
+  weekStartDate  DateTime             @db.Date
+  type           UmmiEntryType
+  stage          UmmiStage?
+  fromPage       Int?
+  toPage         Int?
+  grade          TahfidzFluencyGrade?
+  note           String?              @db.VarChar(500)
+  createdById    String               @db.Uuid
+  updatedById    String               @db.Uuid
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  semester       Semester             @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  group          ExtraHalaqah         @relation(fields: [semesterId, program, groupId], references: [semesterId, program, id], onDelete: Restrict)
+  student        Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  createdBy      Profile              @relation("UmmiEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      Profile              @relation("UmmiEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([semesterId, groupId, studentId, weekStartDate, type])
+  @@index([semesterId, groupId, weekStartDate, type])
   @@index([studentId, weekStartDate])
 }
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ClipboardCheck, MoonStar, ShieldCheck, Sunrise, Sunset } from "lucide-react";
+import { CalendarDays, ClipboardCheck, MoonStar, ShieldCheck, Sunrise, Sunset, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpandableCard } from "@/components/ui/expandable-card";
 import {
@@ -153,6 +153,7 @@ export function DormJournalForm({
     ]))];
   })) as Record<string, Record<string, number | string | null>>;
   const [adab, setAdab] = useState(adabInitial);
+  const [clearedAdab, setClearedAdab] = useState<Set<string>>(new Set());
   const [violations, setViolations] = useState(violationRows.map((row) => ({ ...row })));
 
   async function save(
@@ -172,7 +173,10 @@ export function DormJournalForm({
       try {
         const result = await action(data);
         setMessages((current) => ({ ...current, [key]: result }));
-        if (result.ok) router.refresh();
+        if (result.ok) {
+          if (key === "adab") setClearedAdab(new Set());
+          router.refresh();
+        }
       } catch {
         setMessages((current) => ({
           ...current,
@@ -412,18 +416,45 @@ export function DormJournalForm({
             <p className="mb-4 text-sm text-muted-foreground">Nilai 1–10; nilai di bawah 8 wajib disertai keterangan.</p>
             <form onSubmit={(event) => saveWeeklyForm(event, {
               criterion: "adab",
-              entries: students.map((student) => ({
-                studentId: student.id,
-                ...Object.fromEntries(adabCriteria.flatMap(({ key }) => [
-                  [key, Number(adab[student.id][key])],
-                  [noteKeys[key], String(adab[student.id][noteKeys[key]] ?? "")],
-                ])),
-              })),
+              entries: students.map((student) => clearedAdab.has(student.id)
+                ? { studentId: student.id, clear: true }
+                : {
+                    studentId: student.id,
+                    clear: false,
+                    ...Object.fromEntries(adabCriteria.flatMap(({ key }) => [
+                      [key, Number(adab[student.id][key])],
+                      [noteKeys[key], String(adab[student.id][noteKeys[key]] ?? "")],
+                    ])),
+                  }),
             }, "adab")} className="space-y-4">
               {students.map((student) => (
                 <article key={student.id} className="rounded-xl border border-border p-3">
-                  <p className="mb-3 font-semibold">{student.fullName}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold">{student.fullName}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {clearedAdab.has(student.id) ? "Akan dikosongkan" : adabRows.some((row) => row.studentId === student.id) ? "Tersimpan · bisa ditimpa" : "Belum tersimpan"}
+                    </span>
+                  </div>
+                  {clearedAdab.has(student.id) ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Penilaian santri ini akan dihapus saat disimpan.</p>
+                      <Button type="button" variant="outline" onClick={() => {
+                        setClearedAdab((current) => {
+                          const next = new Set(current);
+                          next.delete(student.id);
+                          return next;
+                        });
+                        const saved = adabRows.find((row) => row.studentId === student.id);
+                        setAdab((current) => ({
+                          ...current,
+                          [student.id]: Object.fromEntries(adabCriteria.flatMap(({ key }) => [
+                            [key, saved?.[key] ?? ""],
+                            [noteKeys[key], saved?.[noteKeys[key]] ?? ""],
+                          ])),
+                        }));
+                      }}>Pulihkan isian</Button>
+                    </div>
+                  ) : <div className="grid gap-3 sm:grid-cols-2">
                     {adabCriteria.map(({ key, label }) => {
                       const noteKey = noteKeys[key];
                       const rawScore = adab[student.id][key] ?? "";
@@ -453,7 +484,17 @@ export function DormJournalForm({
                         </div>
                       );
                     })}
-                  </div>
+                    <Button type="button" variant="outline" className="gap-2 sm:col-span-2" onClick={() => {
+                      setClearedAdab((current) => new Set(current).add(student.id));
+                      setAdab((current) => ({
+                        ...current,
+                        [student.id]: Object.fromEntries(adabCriteria.flatMap(({ key }) => [
+                          [key, ""],
+                          [noteKeys[key], ""],
+                        ])),
+                      }));
+                    }}><Trash2 className="size-4" aria-hidden />Kosongkan baris</Button>
+                  </div>}
                 </article>
               ))}
               <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan penilaian pekanan"}</Button>

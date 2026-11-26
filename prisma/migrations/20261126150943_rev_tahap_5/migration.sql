@@ -1,0 +1,5 @@
+-- RenameIndex
+ALTER INDEX "TahfizhIntensiveEntry_semesterId_groupId_studentId_weekStartDat" RENAME TO "TahfizhIntensiveEntry_semesterId_groupId_studentId_weekStar_key";
+
+-- RenameIndex
+ALTER INDEX "UmmiWeeklyEntry_semesterId_groupId_studentId_weekStartDate_type" RENAME TO "UmmiWeeklyEntry_semesterId_groupId_studentId_weekStartDate__key";

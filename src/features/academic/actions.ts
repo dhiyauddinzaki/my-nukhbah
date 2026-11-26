@@ -42,6 +42,21 @@ const commands = z.discriminatedUnion("operation", [
     roomId: optionalId,
     halaqahId: optionalId,
   }),
+  z.object({
+    operation: z.literal("extraGroup"),
+    semesterId: uuid,
+    groupId: optionalId,
+    program: z.enum(["TAHFIZH_INTENSIF", "TAHSIN_UMMI"]),
+    name: groupName,
+    teacherId: uuid,
+  }),
+  z.object({
+    operation: z.literal("extraRoster"),
+    semesterId: uuid,
+    groupId: uuid,
+    program: z.enum(["TAHFIZH_INTENSIF", "TAHSIN_UMMI"]),
+    studentIds: z.array(uuid).max(2000),
+  }),
 ]);
 
 type Command = z.infer<typeof commands>;
@@ -141,6 +156,83 @@ async function applyCommand(tx: Transaction, input: Command) {
   if (!semester) throw new InputError("Perubahan penempatan dan kelompok hanya tersedia di semester aktif.");
 
   if (input.operation === "group") return saveGroup(tx, input);
+  if (input.operation === "extraGroup") {
+    const teacher = await tx.profile.findFirst({
+      where: { id: input.teacherId, role: "MUSYRIF", isActive: true },
+      select: { id: true },
+    });
+    if (!teacher) throw new InputError("Pilih Muhaffizh / Guru Pengampu yang aktif.");
+    if (!input.groupId) {
+      const maxGroups = input.program === "TAHFIZH_INTENSIF" ? 5 : 10;
+      const count = await tx.extraHalaqah.count({ where: { semesterId: semester.id, program: input.program } });
+      if (count >= maxGroups) {
+        throw new InputError(`Jumlah halaqah ${input.program === "TAHFIZH_INTENSIF" ? "Tahfizh Intensif" : "Tahsin UMMI"} maksimal ${maxGroups}.`);
+      }
+      await tx.extraHalaqah.create({
+        data: {
+          semesterId: semester.id,
+          program: input.program,
+          name: input.name,
+          teacherId: input.teacherId,
+        },
+      });
+    } else {
+      const existing = await tx.extraHalaqah.findFirst({
+        where: { id: input.groupId, semesterId: semester.id, program: input.program },
+        select: { id: true },
+      });
+      if (!existing) throw new InputError("Kelompok ekstra tidak ditemukan pada program yang dipilih.");
+      await tx.extraHalaqah.update({
+        where: { semesterId_id: { semesterId: semester.id, id: input.groupId } },
+        data: { name: input.name, teacherId: input.teacherId },
+      });
+    }
+    return;
+  }
+  if (input.operation === "extraRoster") {
+    const group = await tx.extraHalaqah.findFirst({
+      where: { id: input.groupId, semesterId: semester.id, program: input.program },
+      select: { id: true },
+    });
+    if (!group) throw new InputError("Kelompok ekstra tidak ditemukan pada semester aktif.");
+    if (new Set(input.studentIds).size !== input.studentIds.length) {
+      throw new InputError("Daftar santri mengandung pilihan ganda.");
+    }
+    if (input.studentIds.length > 0) {
+      const currentAssignments = await tx.extraStudentAssignment.findMany({
+        where: {
+          semesterId: semester.id,
+          studentId: { in: input.studentIds },
+          groupId: { not: group.id },
+        },
+        include: { group: { select: { name: true } } },
+      });
+      const otherProgramAssignment = currentAssignments.find((assignment) => assignment.program !== input.program);
+      if (otherProgramAssignment) {
+        throw new InputError(`${otherProgramAssignment.group.name} sudah memiliki santri yang dipilih. Keluarkan santri dari program tersebut sebelum memindahkannya.`);
+      }
+    }
+    await tx.extraStudentAssignment.deleteMany({ where: { semesterId: semester.id, groupId: group.id } });
+    if (input.studentIds.length > 0) {
+      await tx.extraStudentAssignment.deleteMany({
+        where: {
+          semesterId: semester.id,
+          program: input.program,
+          studentId: { in: input.studentIds },
+        },
+      });
+      await tx.extraStudentAssignment.createMany({
+        data: input.studentIds.map((studentId) => ({
+          academicYearId: semester.academicYearId,
+          semesterId: semester.id,
+          program: input.program,
+          groupId: group.id,
+          studentId,
+        })),
+      });
+    }
+    return;
+  }
 
   const { studentId, classroomId, roomId, halaqahId } = input;
   const assignment = { classroomId, roomId, halaqahId };
@@ -155,7 +247,9 @@ export async function saveMasterData(data: FormData): Promise<{ ok: boolean; mes
   const profile = await getActiveProfile();
   if (profile?.role !== "ADMIN") return { ok: false, message: "Akses hanya untuk Admin." };
 
-  const parsed = commands.safeParse(Object.fromEntries(data));
+  const rawData: Record<string, FormDataEntryValue | FormDataEntryValue[]> = Object.fromEntries(data);
+  if (data.get("operation") === "extraRoster") rawData.studentIds = data.getAll("studentIds");
+  const parsed = commands.safeParse(rawData);
   if (!parsed.success) return { ok: false, message: "Periksa isian yang kosong, terlalu panjang, atau tidak valid." };
 
   try {
@@ -176,5 +270,10 @@ export async function saveMasterData(data: FormData): Promise<{ ok: boolean; mes
   }
 
   revalidatePath("/", "layout");
+  revalidatePath("/admin/master");
+  revalidatePath("/ekstra");
+  revalidatePath("/pembinaan");
+  revalidatePath("/portfolio");
+  revalidatePath("/asrama");
   return { ok: true, message: "Data berhasil disimpan." };
 }

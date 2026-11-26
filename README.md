@@ -191,12 +191,13 @@ Migrasi `20261126020000_tahfidz_weekly_position` menambahkan kolom Juz/halaman d
 
 ## Program Ekstra (Tahap 5)
 
-- **Akses**: Admin dan Musyrif dapat membuka menu **Ekstra**. Musyrif hanya dapat melihat halaqah yang ditugaskan; setiap catatan dibatasi ke semester aktif.
-- **Halaqah**: roster ekstra memakai santri dalam halaqah semester aktif. Tahap ini tidak membuat kelompok ekstra terpisah.
-- **Tahfizh Intensif**: catat jumlah halaman yang dicapai setiap santri per pekan. Target dihitung dari `APP_CONFIG.defaultTahfizhIntensifTarget` dikali jumlah hari pekan yang beririsan dengan semester aktif, dan target disimpan agar riwayat tidak berubah bila konstanta kelak diperbarui.
-- **Tahsin UMMI**: catat level Pra-Tahsin, Jilid 1–6, Gharib, Tajwid, atau Al-Qur'an; rentang halaman; nilai kelancaran A–D; dan catatan opsional.
-- **Pengiriman dan riwayat**: kedua program disimpan terpisah untuk seluruh santri halaqah. Kartu per santri mulai tertutup, progres pekan terlihat di bagian atas, dan 30 entri terakhir ditampilkan sebagai riwayat.
-- **Periode**: setiap catatan terikat ke tahun ajaran, semester, halaqah, santri, dan awal pekan. Pekan harus Senin–Minggu dan beririsan dengan semester aktif.
+- **Master data**: dari **Dashboard → Master Data**, Admin mengatur maksimal 5 halaqah Tahfizh Intensif dan 10 halaqah Tahsin UMMI, menetapkan Muhaffizh berbeda pada tiap kelompok, dan memilih anggota. Jumlah minimum yang disarankan adalah 3 dan 6 halaqah. Satu santri hanya dapat mengikuti satu program ekstra di satu semester. Santri Tahfizh Intensif tidak wajib memiliki halaqah Tahfizh reguler.
+- **Akses**: Admin dan Muhaffizh dapat mengisi program di menu **Ekstra**. Muhaffizh hanya melihat kelompok yang diampu; setiap query dan simpanan dibatasi kelompok serta semester aktif.
+- **Tahfizh Intensif Nukhbatul Huffazh**: tab Ziyadah, Murajaah, dan Ujian Tasmi'. Ziyadah mencatat halaman, posisi Juz/halaman, catatan Muhaffizh, serta tanda pekan Murajaah. Target semester adalah 60 halaman (3 putaran × 4 pekan × 5 halaman); pekan Murajaah yang ditandai tidak menambah capaian halaman. Murajaah menyimpan checklist Jadid/Qadim. Tasmi' mendukung beberapa juz, nilai A–D per juz, dan catatan Muhaffizh.
+- **Tahsin UMMI**: tab Pembelajaran dan Ujian; jenjang Jilid 1–3, Gharib, Tajwid, atau Al-Qur'an. Pembelajaran mencatat rentang halaman dan nilai A–D; nilai selain A wajib memiliki catatan. Tombol **Terapkan ke semua** menyalin jenjang, halaman, dan nilai dari panel bersama, sedangkan catatan tetap per santri.
+- **Simpan dan riwayat**: pilih halaqah dan pekan pada form. Baris menandai data tersimpan, dapat ditimpa, atau dikosongkan. Catatan Tahap 5 lama tetap disimpan di `ExtraWeeklyEntry` sebagai arsip dan tidak dipetakan otomatis ke kelompok baru.
+- **Portfolio**: santri Tahfizh Intensif menampilkan kartu khusus dengan capaian halaman bulanan dibanding target semester 60 halaman dan indikator bintang untuk ujian Tasmi'. Kartu Tahfizh reguler tidak ditampilkan untuk anggota Intensif.
+- **Periode**: data program baru terikat tahun ajaran, semester, kelompok, anggota, dan pekan Senin–Minggu yang beririsan dengan semester aktif.
 
 Terapkan migrasi Tahap 5 pada database development:
 
@@ -206,7 +207,7 @@ pnpm prisma generate
 pnpm dev
 ```
 
-Migrasi `20261126030000_extra_weekly_records` menambah tabel jurnal ekstra tanpa mengubah data tahap sebelumnya. Rekap dan grafik Ekstra direncanakan pada Tahap 6.
+Migrasi `20261126040000_extra_program_cohorts` menambah halaqah khusus, roster, dan jurnal terstruktur; tabel jurnal lama tetap dipertahankan. Rekap pekanan Asrama menampilkan progres jurnal Tahfizh dan Ekstra.
 
 ## Modul berikutnya
 

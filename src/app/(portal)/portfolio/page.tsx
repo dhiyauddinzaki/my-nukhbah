@@ -8,6 +8,7 @@ import {
   Heart,
   RotateCcw,
   Sparkles,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,17 @@ export default async function PortfolioPage({ searchParams }: {
             OR: [
               { room: { supervisorId: profile.id } },
               { halaqah: { teacherId: profile.id } },
+              {
+                student: {
+                  extraAssignments: {
+                    some: {
+                      semesterId: period.id,
+                      program: "TAHFIZH_INTENSIF",
+                      group: { teacherId: profile.id },
+                    },
+                  },
+                },
+              },
             ],
           } : {}),
         },
@@ -126,8 +138,14 @@ export default async function PortfolioPage({ searchParams }: {
   const requestedStudentId = typeof params.studentId === "string" ? params.studentId : "";
   const selectedEnrollment = enrollments.find((enrollment) => enrollment.studentId === requestedStudentId) ?? enrollments[0];
   const selectedStudent = selectedEnrollment?.student;
+  const extraAssignment = selectedStudent && period
+    ? await db.extraStudentAssignment.findUnique({
+        where: { semesterId_studentId: { semesterId: period.id, studentId: selectedStudent.id } },
+        include: { group: { select: { name: true, program: true, teacher: { select: { displayName: true } } } } },
+      })
+    : null;
 
-  const [presenceRows, weeklyReviews, tahfidzEntries] = selectedStudent && period
+  const [presenceRows, weeklyReviews, tahfidzEntries, intensiveEntries] = selectedStudent && period
     ? await Promise.all([
         db.dormDailyPresence.findMany({
           where: {
@@ -161,8 +179,24 @@ export default async function PortfolioPage({ searchParams }: {
           include: { halaqah: { select: { name: true } } },
           orderBy: [{ date: "desc" }, { type: "asc" }],
         }),
+        extraAssignment?.program === "TAHFIZH_INTENSIF"
+          ? db.tahfizhIntensiveEntry.findMany({
+              where: {
+                studentId: selectedStudent.id,
+                semesterId: period.id,
+                groupId: extraAssignment.groupId,
+                weekStartDate: {
+                  gte: new Date(reportStart.getTime() - 6 * 86400000),
+                  lte: reportEnd,
+                },
+                type: { in: ["ZIYADAH", "TASMI"] },
+              },
+              include: { tasmiScores: true },
+              orderBy: { weekStartDate: "desc" },
+            })
+          : Promise.resolve([]),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
 
   const presenceCount = (status: "H" | "S" | "I" | "A") => presenceRows.filter((row) => row.status === status).length;
   const presenceTotal = presenceRows.length;
@@ -179,6 +213,12 @@ export default async function PortfolioPage({ searchParams }: {
   const latestHafalan = [...tahfidzEntries]
     .filter((entry) => entry.type === "ZIYADAH")
     .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+  const intensivePages = intensiveEntries
+    .filter((entry) => entry.type === "ZIYADAH" && !entry.isMurajaahWeek)
+    .reduce((sum, entry) => sum + (entry.pagesCompleted ?? 0), 0);
+  const intensiveTasmiCount = intensiveEntries
+    .filter((entry) => entry.type === "TASMI" && entry.tasmiScores.length > 0).length;
+  const intensiveProgress = Math.round(intensivePages / APP_CONFIG.intensiveSemesterTargetPages * 100);
   const totalPoints = weeklyReviews.flatMap((review) => review.violations)
     .reduce((sum, item) => sum + item.repetitions * item.pointsPerOccurrence, 0);
   const violations = weeklyReviews.flatMap((review) => review.violations.map((violation) => ({
@@ -251,6 +291,22 @@ export default async function PortfolioPage({ searchParams }: {
               )}
             </section>
 
+            {extraAssignment?.program === "TAHFIZH_INTENSIF" ? (
+              <section className="space-y-4 rounded-2xl border border-amber-900/15 border-l-4 border-l-amber-500 bg-amber-50/20 p-4 dark:bg-amber-950/10">
+                <SectionTitle icon={BookOpen} title="Tahfizh Intensif Nukhbatul Huffazh" caption={`${extraAssignment.group.name} · bulan ini`} />
+                <div className="space-y-3">
+                  <Meter label={`${intensivePages} halaman · target semester ${APP_CONFIG.intensiveSemesterTargetPages} halaman`} value={intensiveProgress} color="bg-amber-600" />
+                  <p className="text-xs text-muted-foreground">Capaian dihitung dari pekan Ziyadah yang beririsan dengan bulan terpilih.</p>
+                  <div className="flex items-center justify-between rounded-xl bg-amber-50 p-3 dark:bg-amber-950/30">
+                    <span className="flex items-center gap-2 text-sm font-semibold"><Star className="size-4 text-amber-600" aria-hidden />Ujian Tasmi&apos;</span>
+                    <span className="flex items-center gap-1" aria-label={`${intensiveTasmiCount} pekan ujian Tasmi'`}>
+                      {Array.from({ length: Math.min(5, intensiveTasmiCount) }, (_, index) => <Star key={index} className="size-4 fill-amber-500 text-amber-600" aria-hidden />)}
+                      {intensiveTasmiCount === 0 && <span className="text-xs text-muted-foreground">Belum ada</span>}
+                    </span>
+                  </div>
+                </div>
+              </section>
+            ) : (
             <section className="space-y-4 rounded-2xl border border-border p-4">
               <SectionTitle icon={BookOpen} title="Tahfizh" caption="Pencapaian hafalan selama bulan ini" />
               <div className="space-y-4">
@@ -281,6 +337,7 @@ export default async function PortfolioPage({ searchParams }: {
                 </div>
               </div>
             </section>
+            )}
 
             <section className="space-y-4 rounded-2xl border border-border p-4">
               <SectionTitle icon={Heart} title="Penilaian Adab" caption="Rata-rata Huquq Sittah bulan ini" />

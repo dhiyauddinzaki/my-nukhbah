@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpenCheck, Check, ChevronDown, RotateCcw, Sparkles } from "lucide-react";
+import { BookOpenCheck, Check, ChevronDown, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config/constants";
 import { fluencyGrades, tahfidzTypes } from "./constants";
@@ -87,6 +87,7 @@ export function TahfidzForm({
   const [activeType, setActiveType] = useState<"ZIYADAH" | "MURAJAAH" | "JUZIYYAH">("ZIYADAH");
   const [result, setResult] = useState<{ ok: boolean; message: string }>();
   const [formValues, setFormValues] = useState(() => getValues(students, entries, "ZIYADAH"));
+  const [clearedStudents, setClearedStudents] = useState<Set<string>>(new Set());
   const completedTypes = new Set(
     tahfidzTypes
       .filter(({ value }) => students.length > 0 && students.every((student) => entries.some((entry) => entry.studentId === student.id && entry.type === value)))
@@ -106,7 +107,30 @@ export function TahfidzForm({
   function switchType(type: "ZIYADAH" | "MURAJAAH" | "JUZIYYAH") {
     setActiveType(type);
     setFormValues(getValues(students, entries, type));
+    setClearedStudents(new Set());
     setResult(undefined);
+  }
+
+  function clearStudent(studentId: string) {
+    setClearedStudents((current) => new Set(current).add(studentId));
+    setFormValues((current) => ({
+      ...current,
+      [studentId]: { juzNumber: "", fromPage: "", toPage: "", lineCount: "", fluencyGrade: "", score: "", note: "" },
+    }));
+  }
+
+  function restoreStudent(studentId: string) {
+    const student = students.find((item) => item.id === studentId);
+    if (!student) return;
+    setClearedStudents((current) => {
+      const next = new Set(current);
+      next.delete(studentId);
+      return next;
+    });
+    setFormValues((current) => ({
+      ...current,
+      ...getValues([student], entries, activeType),
+    }));
   }
 
   const typeIcon = activeType === "MURAJAAH" ? RotateCcw : activeType === "JUZIYYAH" ? Sparkles : BookOpenCheck;
@@ -194,13 +218,15 @@ export function TahfidzForm({
               type: activeType,
               entries: students.map((student) => {
                 const value = formValues[student.id];
+                const clear = clearedStudents.has(student.id);
                 return {
                   studentId: student.id,
-                  juzNumber: Number(value.juzNumber),
-                  fromPage: Number(value.fromPage),
-                  toPage: Number(value.toPage),
-                  lineCount: activeType === "ZIYADAH" ? Number(value.lineCount) : undefined,
-                  fluencyGrade: String(value.fluencyGrade),
+                  clear,
+                  juzNumber: value.juzNumber === "" ? undefined : Number(value.juzNumber),
+                  fromPage: value.fromPage === "" ? undefined : Number(value.fromPage),
+                  toPage: value.toPage === "" ? undefined : Number(value.toPage),
+                  lineCount: activeType === "ZIYADAH" && value.lineCount !== "" ? Number(value.lineCount) : undefined,
+                  fluencyGrade: value.fluencyGrade || undefined,
                   assessment: "BELUM_DINILAI",
                   score: activeType === "JUZIYYAH" && value.score !== "" ? Number(value.score) : undefined,
                   note: String(value.note ?? "") || undefined,
@@ -224,6 +250,7 @@ export function TahfidzForm({
               {students.map((student, index) => {
                 const value = formValues[student.id];
                 const saved = entries.some((entry) => entry.studentId === student.id && entry.type === activeType);
+                const cleared = clearedStudents.has(student.id);
                 const currentGrade = String(value?.fluencyGrade ?? "");
                 return (
                   <details key={student.id} className="group overflow-hidden rounded-2xl border border-teal-900/10 bg-card shadow-sm">
@@ -231,14 +258,19 @@ export function TahfidzForm({
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-800 dark:bg-teal-950 dark:text-teal-200">{index + 1}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-bold">{student.fullName}</span>
-                        <span className="block text-xs text-muted-foreground">NIS {student.nis}{saved ? " · Sudah tersimpan" : ""}</span>
+                        <span className="block text-xs text-muted-foreground">{cleared ? "Akan dikosongkan" : saved ? "Tersimpan · bisa ditimpa" : `NIS ${student.nis}`}</span>
                       </span>
                       <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-foreground">
                         <span className="group-open:hidden">Isi</span><span className="hidden group-open:inline">Tutup</span>
                       </span>
                       <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
                     </summary>
-                    <div className="grid gap-3 border-t border-border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {cleared ? (
+                      <div className="space-y-3 border-t border-border bg-muted/30 p-4">
+                        <p className="text-sm text-muted-foreground">Baris ini akan dikosongkan saat laporan disimpan.</p>
+                        <Button type="button" variant="outline" onClick={() => restoreStudent(student.id)}>Pulihkan isian</Button>
+                      </div>
+                    ) : <div className="grid gap-3 border-t border-border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-3">
                       <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         Juz
                         <select required className={fieldClass} value={String(value?.juzNumber ?? "")}
@@ -283,7 +315,10 @@ export function TahfidzForm({
                         <input maxLength={500} className={fieldClass} value={String(value?.note ?? "")}
                           onChange={(event) => setValue(student.id, "note", event.target.value)} />
                       </label>
-                    </div>
+                      <Button type="button" variant="outline" className="gap-2 sm:col-span-2 lg:col-span-3" onClick={() => clearStudent(student.id)}>
+                        <Trash2 className="size-4" aria-hidden />Kosongkan baris
+                      </Button>
+                    </div>}
                   </details>
                 );
               })}
