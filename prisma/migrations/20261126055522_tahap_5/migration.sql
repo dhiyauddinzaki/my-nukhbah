@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "ExtraWeeklyEntry_semesterId_halaqahId_studentId_weekStartDate_p" RENAME TO "ExtraWeeklyEntry_semesterId_halaqahId_studentId_weekStartDa_key";

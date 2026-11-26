@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, CalendarDays, ChartNoAxesColumn, House, LayoutDashboard, NotebookText } from "lucide-react";
+import { BookOpen, CalendarDays, ChartNoAxesColumn, House, LayoutDashboard, NotebookText, Sparkles } from "lucide-react";
 import { canAccess, sections, type AppRole, type Section } from "@/features/auth/permissions";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ const icons = {
   admin: LayoutDashboard,
   asrama: House,
   pembinaan: BookOpen,
+  ekstra: Sparkles,
   portfolio: NotebookText,
   kalender: CalendarDays,
   "rekap-admin": ChartNoAxesColumn,

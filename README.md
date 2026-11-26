@@ -75,9 +75,9 @@ Ganti nilai seed dengan UID berbeda untuk setiap profil tambahan, lalu jalankan 
 
 | Role | Halaman awal | Menu yang tersedia |
 | --- | --- | --- |
-| Admin | Dashboard Admin | Dashboard, Master Data (di dalam Dashboard), Asrama, Pembinaan, Portfolio, Kalender, Rekap Admin |
+| Admin | Dashboard Admin | Dashboard, Master Data (di dalam Dashboard), Asrama, Pembinaan, Ekstra, Portfolio, Kalender, Rekap Admin |
 | Kepala Asrama | Rekap Asrama | Asrama, Rekap Admin |
-| Musyrif / Guru Pengampu Quran | Ruang Pembinaan | Pembinaan, Asrama, Portfolio, Kalender |
+| Musyrif / Guru Pengampu Quran | Ruang Pembinaan | Pembinaan, Ekstra, Asrama, Portfolio, Kalender |
 | Wali Santri | Portfolio Santri | Portfolio, Kalender |
 
 Aturan akses halaman ada di `src/features/auth/permissions.ts` dan ditegakkan di server. Saat modul data dikembangkan, setiap query dan Server Action juga harus memeriksa cakupan data. Profil Wali hanya boleh membaca data santri yang memiliki relasi wali aktif. Profil Musyrif/Guru hanya boleh mengakses penempatan kamar/halaqah yang ditugaskan. Sambungkan jadwal, database, dan tindakan ubah data pada tahap implementasi masing-masing.
@@ -189,6 +189,25 @@ pnpm prisma generate
 
 Migrasi `20261126020000_tahfidz_weekly_position` menambahkan kolom Juz/halaman dan nilai kelancaran tanpa menghapus kolom surah/ayat lama.
 
+## Program Ekstra (Tahap 5)
+
+- **Akses**: Admin dan Musyrif dapat membuka menu **Ekstra**. Musyrif hanya dapat melihat halaqah yang ditugaskan; setiap catatan dibatasi ke semester aktif.
+- **Halaqah**: roster ekstra memakai santri dalam halaqah semester aktif. Tahap ini tidak membuat kelompok ekstra terpisah.
+- **Tahfizh Intensif**: catat jumlah halaman yang dicapai setiap santri per pekan. Target dihitung dari `APP_CONFIG.defaultTahfizhIntensifTarget` dikali jumlah hari pekan yang beririsan dengan semester aktif, dan target disimpan agar riwayat tidak berubah bila konstanta kelak diperbarui.
+- **Tahsin UMMI**: catat level Pra-Tahsin, Jilid 1–6, Gharib, Tajwid, atau Al-Qur'an; rentang halaman; nilai kelancaran A–D; dan catatan opsional.
+- **Pengiriman dan riwayat**: kedua program disimpan terpisah untuk seluruh santri halaqah. Kartu per santri mulai tertutup, progres pekan terlihat di bagian atas, dan 30 entri terakhir ditampilkan sebagai riwayat.
+- **Periode**: setiap catatan terikat ke tahun ajaran, semester, halaqah, santri, dan awal pekan. Pekan harus Senin–Minggu dan beririsan dengan semester aktif.
+
+Terapkan migrasi Tahap 5 pada database development:
+
+```powershell
+pnpm prisma migrate dev
+pnpm prisma generate
+pnpm dev
+```
+
+Migrasi `20261126030000_extra_weekly_records` menambah tabel jurnal ekstra tanpa mengubah data tahap sebelumnya. Rekap dan grafik Ekstra direncanakan pada Tahap 6.
+
 ## Modul berikutnya
 
-Tahap 4 mengimplementasikan jurnal Al-Quran (Ziyadah, Murajaah, Juziyyah). Ekstra, rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage digunakan untuk unggahan foto; `@react-pdf/renderer` digunakan ketika PDF diimplementasikan.
+Tahap 4 mengimplementasikan jurnal Al-Quran (Ziyadah, Murajaah, Juziyyah), dan Tahap 5 mencatat Tahfizh Intensif serta Tahsin UMMI. Rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage digunakan untuk unggahan foto; `@react-pdf/renderer` digunakan ketika PDF diimplementasikan.

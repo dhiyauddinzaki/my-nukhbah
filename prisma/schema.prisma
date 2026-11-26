@@ -30,6 +30,8 @@ model Profile {
   updatedWeeklyReviews  DormWeeklyReview[] @relation("WeeklyReviewUpdatedBy")
   createdTahfidzEntries TahfidzEntry[]     @relation("TahfidzEntryCreatedBy")
   updatedTahfidzEntries TahfidzEntry[]     @relation("TahfidzEntryUpdatedBy")
+  createdExtraEntries   ExtraWeeklyEntry[] @relation("ExtraEntryCreatedBy")
+  updatedExtraEntries   ExtraWeeklyEntry[] @relation("ExtraEntryUpdatedBy")
 }
 
 enum SemesterName {
@@ -62,6 +64,7 @@ model Semester {
   dormJournals   DormJournal[]
   weeklyReviews  DormWeeklyReview[]
   tahfidzEntries TahfidzEntry[]
+  extraEntries   ExtraWeeklyEntry[]
 
   @@unique([academicYearId, name])
   @@unique([academicYearId, id])
@@ -80,6 +83,7 @@ model Student {
   weeklyAdabScores    DormWeeklyAdabScore[]
   dormViolations      DormViolation[]
   tahfidzEntries      TahfidzEntry[]
+  extraEntries        ExtraWeeklyEntry[]
 
   @@index([fullName, id])
 }
@@ -112,14 +116,15 @@ model Room {
 }
 
 model Halaqah {
-  id             String         @id @default(uuid()) @db.Uuid
-  semesterId     String         @db.Uuid
-  name           String         @db.VarChar(80)
-  teacherId      String?        @db.Uuid
-  teacher        Profile?       @relation("HalaqahTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
-  semester       Semester       @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  id             String             @id @default(uuid()) @db.Uuid
+  semesterId     String             @db.Uuid
+  name           String             @db.VarChar(80)
+  teacherId      String?            @db.Uuid
+  teacher        Profile?           @relation("HalaqahTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  semester       Semester           @relation(fields: [semesterId], references: [id], onDelete: Restrict)
   enrollments    Enrollment[]
   tahfidzEntries TahfidzEntry[]
+  extraEntries   ExtraWeeklyEntry[]
 
   @@unique([semesterId, name])
   @@unique([semesterId, id])
@@ -192,6 +197,24 @@ enum TahfidzFluencyGrade {
   D
 }
 
+enum ExtraProgram {
+  TAHFIZH_INTENSIF
+  TAHSIN_UMMI
+}
+
+enum UmmiLevel {
+  PRA_TAHSIN
+  JILID_1
+  JILID_2
+  JILID_3
+  JILID_4
+  JILID_5
+  JILID_6
+  GHARIB
+  TAJWID
+  AL_QURAN
+}
+
 model TahfidzEntry {
   id             String               @id @default(uuid()) @db.Uuid
   academicYearId String               @db.Uuid
@@ -226,6 +249,36 @@ model TahfidzEntry {
   @@index([semesterId, halaqahId, date])
   @@index([studentId, date])
   @@index([type, assessment])
+}
+
+model ExtraWeeklyEntry {
+  id             String               @id @default(uuid()) @db.Uuid
+  academicYearId String               @db.Uuid
+  semesterId     String               @db.Uuid
+  halaqahId      String               @db.Uuid
+  studentId      String               @db.Uuid
+  weekStartDate  DateTime             @db.Date
+  program        ExtraProgram
+  targetPages    Int?
+  pagesCompleted Int?
+  ummiLevel      UmmiLevel?
+  fromPage       Int?
+  toPage         Int?
+  fluencyGrade   TahfidzFluencyGrade?
+  note           String?              @db.VarChar(500)
+  createdById    String               @db.Uuid
+  updatedById    String               @db.Uuid
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  semester       Semester             @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  halaqah        Halaqah              @relation(fields: [semesterId, halaqahId], references: [semesterId, id], onDelete: Restrict)
+  student        Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  createdBy      Profile              @relation("ExtraEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      Profile              @relation("ExtraEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([semesterId, halaqahId, studentId, weekStartDate, program])
+  @@index([semesterId, halaqahId, weekStartDate, program])
+  @@index([studentId, weekStartDate])
 }
 
 enum PresenceStatus {
