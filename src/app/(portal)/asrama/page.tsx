@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { CalendarDays, CheckCircle2, CircleAlert } from "lucide-react";
 import { APP_CONFIG } from "@/config/constants";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";
@@ -17,12 +18,16 @@ export default async function AsramaPage({ searchParams }: {
   const profile = await requireProfile();
   if (!canAccess(profile.role, "asrama")) notFound();
 
-  const { date: dateParam } = await searchParams;
+  const { date: dateParam, view } = await searchParams;
+  const selectedView = typeof view === "string" ? view : "kelengkapan";
   const period = await getActiveSemester();
   const rawDate = typeof dateParam === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayIso();
   const selectedDate = period && rawDate >= period.startDate.toISOString().slice(0, 10) && rawDate <= period.endDate.toISOString().slice(0, 10)
     ? rawDate
     : period ? (todayIso() >= period.startDate.toISOString().slice(0, 10) && todayIso() <= period.endDate.toISOString().slice(0, 10) ? todayIso() : period.startDate.toISOString().slice(0, 10)) : rawDate;
+  const weekStart = new Date(selectedDate + "T00:00:00.000Z");
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  const canSeeSensitiveRecaps = profile.role === "ADMIN" || profile.role === "KEPALA_ASRAMA";
 
   const rooms = period
     ? await db.room.findMany({
@@ -35,12 +40,45 @@ export default async function AsramaPage({ searchParams }: {
           _count: { select: { enrollments: true } },
           dormJournals: {
             where: { date: new Date(selectedDate + "T00:00:00.000Z") },
-            select: { id: true, updatedAt: true, pagiPhotoPath: true, sorePhotoPath: true, malamPhotoPath: true, _count: { select: { attendances: true, prayers: true } } },
+            select: {
+              id: true,
+              updatedAt: true,
+              presenceSubmittedAt: true,
+              tahajjudSubmittedAt: true,
+              pagiSubmittedAt: true,
+              soreSubmittedAt: true,
+              malamSubmittedAt: true,
+            },
           },
         },
         orderBy: { name: "asc" },
       })
     : [];
+  const [absences, violations] = period && canSeeSensitiveRecaps
+    ? await Promise.all([
+        db.dormDailyPresence.findMany({
+          where: {
+            status: { not: "H" },
+            journal: { semesterId: period.id, date: new Date(selectedDate + "T00:00:00.000Z") },
+          },
+          include: { student: { select: { id: true, nis: true, fullName: true } }, journal: { include: { room: { select: { name: true } } } } },
+          orderBy: [{ status: "asc" }, { student: { fullName: "asc" } }],
+        }),
+        db.dormViolation.findMany({
+          where: {
+            review: {
+              semesterId: period.id,
+              weekStartDate: weekStart,
+            },
+          },
+          include: {
+            student: { select: { id: true, nis: true, fullName: true } },
+            review: { include: { room: { select: { name: true } } } },
+          },
+          orderBy: [{ student: { fullName: "asc" } }, { violationType: "asc" }],
+        }),
+      ])
+    : [[], []];
 
   return (
     <>
@@ -61,6 +99,7 @@ export default async function AsramaPage({ searchParams }: {
           </div>
           {period && (
             <form action="/asrama" method="get" className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="view" value={selectedView} />
               <label className="grid gap-1 text-sm font-semibold">
                 Tanggal
                 <input type="date" name="date" defaultValue={selectedDate}
@@ -72,13 +111,74 @@ export default async function AsramaPage({ searchParams }: {
           )}
         </div>
 
+        <nav aria-label="Rekap asrama" className="flex flex-wrap gap-2">
+          <Button asChild variant={selectedView === "kelengkapan" ? undefined : "outline"}>
+            <Link href={`/asrama?date=${selectedDate}&view=kelengkapan`}>Kelengkapan jurnal</Link>
+          </Button>
+          {canSeeSensitiveRecaps && (
+            <>
+              <Button asChild variant={selectedView === "izin" ? undefined : "outline"}>
+                <Link href={`/asrama?date=${selectedDate}&view=izin`}>Daftar Izin</Link>
+              </Button>
+              <Button asChild variant={selectedView === "pelanggaran" ? undefined : "outline"}>
+                <Link href={`/asrama?date=${selectedDate}&view=pelanggaran`}>Pelanggaran pekan ini</Link>
+              </Button>
+            </>
+          )}
+        </nav>
+
         {!period && <p className="mt-4 text-sm text-muted-foreground">Belum ada semester aktif.</p>}
-        {period && rooms.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Belum ada kamar untuk ditampilkan.</p>}
-        {period && rooms.length > 0 && (
+        {period && selectedView === "izin" && canSeeSensitiveRecaps && (
+          <div className="mt-4">
+            <h3 className="font-bold">Daftar Izin · {selectedDate}</h3>
+            {absences.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Tidak ada santri berstatus S, I, atau A pada tanggal ini.</p> : (
+              <ul className="mt-2 divide-y divide-border">
+                {absences.map((entry) => (
+                  <li key={`${entry.journalId}:${entry.studentId}`} className="py-3">
+                    <p className="font-semibold">{entry.student.fullName} <span className="text-xs font-normal text-muted-foreground">· {entry.student.nis}</span></p>
+                    <p className="text-sm text-muted-foreground">Kamar {entry.journal.room.name} · Status {entry.status}{entry.note ? ` · ${entry.note}` : ""}</p>
+                    {profile.role !== "KEPALA_ASRAMA" && (
+                      <Link className="text-sm font-semibold text-primary underline" href={`/portfolio?studentId=${entry.student.id}&month=${selectedDate.slice(0, 7)}`}>Lihat portfolio santri</Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {period && selectedView === "pelanggaran" && canSeeSensitiveRecaps && (
+          <div className="mt-4">
+            <h3 className="font-bold">Pelanggaran pekan {weekStart.toISOString().slice(0, 10)}</h3>
+            {violations.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Belum ada pelanggaran yang dicatat pada pekan ini.</p> : (
+              <>
+                <ul className="mt-2 divide-y divide-border">
+                  {violations.map((entry) => (
+                    <li key={entry.id} className="py-3">
+                      <p className="font-semibold">{entry.student.fullName} <span className="text-xs font-normal text-muted-foreground">· {entry.student.nis}</span></p>
+                      <p className="text-sm text-muted-foreground">
+                        Kamar {entry.review.room.name} · {entry.violationType} · {entry.repetitions} × {entry.pointsPerOccurrence} = {entry.repetitions * entry.pointsPerOccurrence} poin
+                      </p>
+                      {profile.role !== "KEPALA_ASRAMA" && (
+                        <Link className="text-sm font-semibold text-primary underline" href={`/portfolio?studentId=${entry.student.id}&month=${selectedDate.slice(0, 7)}`}>Lihat portfolio santri</Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 font-bold">Total poin periode ini: {violations.reduce((sum, item) => sum + item.repetitions * item.pointsPerOccurrence, 0)}</p>
+              </>
+            )}
+          </div>
+        )}
+
+        {period && selectedView === "kelengkapan" && rooms.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Belum ada kamar untuk ditampilkan.</p>}
+        {period && selectedView === "kelengkapan" && rooms.length > 0 && (
           <ul className="mt-4 divide-y divide-border">
             {rooms.map((room) => {
               const journal = room.dormJournals[0];
-              const complete = !!journal && room._count.enrollments > 0;
+              const sent = journal
+                ? [journal.tahajjudSubmittedAt, journal.pagiSubmittedAt, journal.soreSubmittedAt, journal.malamSubmittedAt].filter(Boolean).length
+                : 0;
+              const progress = Math.round(sent / 4 * 100);
               return (
                 <li key={room.id} className="flex flex-wrap items-start justify-between gap-3 py-4">
                   <div>
@@ -88,15 +188,15 @@ export default async function AsramaPage({ searchParams }: {
                     </p>
                     {journal && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Diperbarui {journal.updatedAt.toLocaleString("id-ID")} · {journal._count.attendances} kehadiran · {journal._count.prayers} data shalat
+                        {sent} dari 4 laporan terkirim · {progress}%
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-sm font-semibold">
-                    {complete ? (
-                      <><CheckCircle2 className="size-4 text-emerald-600" aria-hidden /><span className="text-emerald-700 dark:text-emerald-400">Terisi</span></>
+                    {sent === 4 ? (
+                      <><CheckCircle2 className="size-4 text-emerald-600" aria-hidden /><span className="text-emerald-700 dark:text-emerald-400">Lengkap</span></>
                     ) : (
-                      <><CircleAlert className="size-4 text-amber-600" aria-hidden /><span className="text-amber-700 dark:text-amber-400">Belum terisi</span></>
+                      <><CircleAlert className="size-4 text-amber-600" aria-hidden /><span className="text-amber-700 dark:text-amber-400">{sent ? "Sebagian" : "Belum terisi"}</span></>
                     )}
                   </div>
                 </li>

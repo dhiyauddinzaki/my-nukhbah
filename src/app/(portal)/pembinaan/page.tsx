@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { APP_CONFIG } from "@/config/constants";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";
-import { dormSessions, prayers, prayerStatuses } from "@/features/dorm/constants";
 import { DormJournalForm } from "@/features/dorm/journal-form";
 import { canAccess } from "@/features/auth/permissions";
 import { requireProfile } from "@/features/auth/session";
@@ -38,6 +37,10 @@ export default async function PembinaanPage({ searchParams }: {
   const selectedDate = period && rawDate >= period.startDate.toISOString().slice(0, 10) && rawDate <= period.endDate.toISOString().slice(0, 10)
     ? rawDate
     : period ? (todayIso() >= period.startDate.toISOString().slice(0, 10) && todayIso() <= period.endDate.toISOString().slice(0, 10) ? todayIso() : period.startDate.toISOString().slice(0, 10)) : rawDate;
+  const selectedDateObject = new Date(selectedDate + "T00:00:00.000Z");
+  const weekStart = new Date(selectedDateObject);
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  const weekStartDate = weekStart.toISOString().slice(0, 10);
 
   const students = period && selectedRoomId
     ? await db.enrollment.findMany({
@@ -50,8 +53,24 @@ export default async function PembinaanPage({ searchParams }: {
   const journal = period && selectedRoomId
     ? await db.dormJournal.findUnique({
         where: { semesterId_roomId_date: { semesterId: period.id, roomId: selectedRoomId, date: new Date(selectedDate + "T00:00:00.000Z") } },
-        include: { attendances: true, prayers: true },
+          include: {
+            dailyPresences: true,
+            tahajjudAssessments: true,
+            activityAttendances: true,
+          },
       })
+    : null;
+  const weeklyReview = period && selectedRoomId
+    ? await db.dormWeeklyReview.findUnique({
+          where: {
+            semesterId_roomId_weekStartDate: {
+              semesterId: period.id,
+              roomId: selectedRoomId,
+              weekStartDate: new Date(weekStartDate + "T00:00:00.000Z"),
+            },
+          },
+          include: { adabScores: true, violations: true },
+        })
     : null;
 
   return (
@@ -77,23 +96,34 @@ export default async function PembinaanPage({ searchParams }: {
         )}
         {period && rooms.length > 0 && (
           <DormJournalForm
+            key={`${selectedRoomId}:${selectedDate}:${weekStartDate}`}
             rooms={rooms}
             selectedRoomId={selectedRoomId}
             selectedDate={selectedDate}
             minDate={period.startDate.toISOString().slice(0, 10)}
             maxDate={period.endDate.toISOString().slice(0, 10)}
+            weekStartDate={weekStartDate}
             students={students.map((e) => e.student)}
-            journal={journal ? {
-              id: journal.id,
-              pagiPhotoPath: journal.pagiPhotoPath,
-              sorePhotoPath: journal.sorePhotoPath,
-              malamPhotoPath: journal.malamPhotoPath,
-              attendances: journal.attendances.map((a) => ({ studentId: a.studentId, session: a.session, present: a.present })),
-              prayers: journal.prayers.map((p) => ({ studentId: p.studentId, prayer: p.prayer, status: p.status })),
-            } : null}
-            sessions={dormSessions.map((s) => ({ value: s.value, label: s.label, hasPhoto: s.hasPhoto }))}
-            prayers={prayers.map((p) => ({ value: p.value, label: p.label }))}
-            prayerStatuses={prayerStatuses.map((s) => ({ value: s.value, label: s.label }))}
+            presenceRows={journal?.dailyPresences.map((row) => ({ ...row })) ?? []}
+            tahajjudRows={journal?.tahajjudAssessments ?? []}
+            activityRows={journal?.activityAttendances ?? []}
+            adabRows={weeklyReview?.adabScores ?? []}
+            violationRows={weeklyReview?.violations ?? []}
+            photos={{
+              tahajjud: !!journal?.tahajjudPhotoPath,
+              pagi: !!journal?.pagiPhotoPath,
+              sore: !!journal?.sorePhotoPath,
+              malam: !!journal?.malamPhotoPath,
+            }}
+            submitted={{
+              presence: !!journal?.presenceSubmittedAt,
+              tahajjud: !!journal?.tahajjudSubmittedAt,
+              pagi: !!journal?.pagiSubmittedAt,
+              sore: !!journal?.soreSubmittedAt,
+              malam: !!journal?.malamSubmittedAt,
+              adab: !!weeklyReview?.adabSubmittedAt,
+              violations: !!weeklyReview?.violationsSubmittedAt,
+            }}
           />
         )}
       </section>

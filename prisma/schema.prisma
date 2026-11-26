@@ -16,16 +16,18 @@ enum Role {
 }
 
 model Profile {
-  id             String        @id @db.Uuid
-  displayName    String
-  role           Role
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  rooms          Room[]        @relation("RoomSupervisor")
-  halaqahs       Halaqah[]      @relation("HalaqahTeacher")
-  createdJournals DormJournal[] @relation("DormJournalCreatedBy")
-  updatedJournals DormJournal[] @relation("DormJournalUpdatedBy")
+  id                   String             @id @db.Uuid
+  displayName          String
+  role                 Role
+  isActive             Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  rooms                Room[]             @relation("RoomSupervisor")
+  halaqahs             Halaqah[]          @relation("HalaqahTeacher")
+  createdJournals      DormJournal[]      @relation("DormJournalCreatedBy")
+  updatedJournals      DormJournal[]      @relation("DormJournalUpdatedBy")
+  createdWeeklyReviews DormWeeklyReview[] @relation("WeeklyReviewCreatedBy")
+  updatedWeeklyReviews DormWeeklyReview[] @relation("WeeklyReviewUpdatedBy")
 }
 
 enum SemesterName {
@@ -43,31 +45,37 @@ model AcademicYear {
 }
 
 model Semester {
-  id             String        @id @default(uuid()) @db.Uuid
-  academicYearId String        @db.Uuid
+  id             String             @id @default(uuid()) @db.Uuid
+  academicYearId String             @db.Uuid
   name           SemesterName
-  startDate      DateTime      @db.Date
-  endDate        DateTime      @db.Date
-  isActive       Boolean       @default(false)
+  startDate      DateTime           @db.Date
+  endDate        DateTime           @db.Date
+  isActive       Boolean            @default(false)
   closedAt       DateTime?
-  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  academicYear   AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
   classrooms     Classroom[]
   rooms          Room[]
   halaqahs       Halaqah[]
   enrollments    Enrollment[]
   dormJournals   DormJournal[]
+  weeklyReviews  DormWeeklyReview[]
 
   @@unique([academicYearId, name])
   @@unique([academicYearId, id])
 }
 
 model Student {
-  id               String            @id @default(uuid()) @db.Uuid
-  nis              String            @unique @db.VarChar(32)
-  fullName         String            @db.VarChar(120)
-  enrollments      Enrollment[]
-  dormAttendances  DormAttendance[]
-  prayerAttendances PrayerAttendance[]
+  id                  String                   @id @default(uuid()) @db.Uuid
+  nis                 String                   @unique @db.VarChar(32)
+  fullName            String                   @db.VarChar(120)
+  enrollments         Enrollment[]
+  dormAttendances     DormAttendance[]
+  prayerAttendances   PrayerAttendance[]
+  dailyPresences      DormDailyPresence[]
+  tahajjudAssessments DormTahajjudAssessment[]
+  activityAttendances DormActivityAttendance[]
+  weeklyAdabScores    DormWeeklyAdabScore[]
+  dormViolations      DormViolation[]
 
   @@index([fullName, id])
 }
@@ -84,14 +92,15 @@ model Classroom {
 }
 
 model Room {
-  id           String        @id @default(uuid()) @db.Uuid
-  semesterId   String        @db.Uuid
-  name         String        @db.VarChar(80)
-  supervisorId String?       @db.Uuid
-  supervisor   Profile?      @relation("RoomSupervisor", fields: [supervisorId], references: [id], onDelete: Restrict)
-  semester     Semester      @relation(fields: [semesterId], references: [id], onDelete: Restrict)
-  enrollments  Enrollment[]
-  dormJournals DormJournal[]
+  id            String             @id @default(uuid()) @db.Uuid
+  semesterId    String             @db.Uuid
+  name          String             @db.VarChar(80)
+  supervisorId  String?            @db.Uuid
+  supervisor    Profile?           @relation("RoomSupervisor", fields: [supervisorId], references: [id], onDelete: Restrict)
+  semester      Semester           @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  enrollments   Enrollment[]
+  dormJournals  DormJournal[]
+  weeklyReviews DormWeeklyReview[]
 
   @@unique([semesterId, name])
   @@unique([semesterId, id])
@@ -158,29 +167,145 @@ enum PrayerStatus {
   SAKIT
 }
 
+enum PresenceStatus {
+  H
+  S
+  I
+  A
+}
+
+enum DormActivity {
+  PAGI
+  SORE
+  MALAM
+}
+
 model DormJournal {
-  id             String             @id @default(uuid()) @db.Uuid
-  academicYearId String             @db.Uuid
-  semesterId     String             @db.Uuid
-  roomId         String             @db.Uuid
-  date           DateTime           @db.Date
-  pagiPhotoPath  String?            @db.VarChar(500)
-  sorePhotoPath  String?            @db.VarChar(500)
-  malamPhotoPath String?            @db.VarChar(500)
-  createdById    String             @db.Uuid
-  updatedById    String             @db.Uuid
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  semester       Semester           @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
-  room           Room               @relation(fields: [semesterId, roomId], references: [semesterId, id], onDelete: Restrict)
-  createdBy      Profile            @relation("DormJournalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy      Profile            @relation("DormJournalUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  attendances    DormAttendance[]
-  prayers        PrayerAttendance[]
+  id                  String                   @id @default(uuid()) @db.Uuid
+  academicYearId      String                   @db.Uuid
+  semesterId          String                   @db.Uuid
+  roomId              String                   @db.Uuid
+  date                DateTime                 @db.Date
+  tahajjudPhotoPath   String?                  @db.VarChar(500)
+  pagiPhotoPath       String?                  @db.VarChar(500)
+  sorePhotoPath       String?                  @db.VarChar(500)
+  malamPhotoPath      String?                  @db.VarChar(500)
+  presenceSubmittedAt DateTime?
+  tahajjudSubmittedAt DateTime?
+  pagiSubmittedAt     DateTime?
+  soreSubmittedAt     DateTime?
+  malamSubmittedAt    DateTime?
+  createdById         String                   @db.Uuid
+  updatedById         String                   @db.Uuid
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  semester            Semester                 @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  room                Room                     @relation(fields: [semesterId, roomId], references: [semesterId, id], onDelete: Restrict)
+  createdBy           Profile                  @relation("DormJournalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy           Profile                  @relation("DormJournalUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  attendances         DormAttendance[]
+  prayers             PrayerAttendance[]
+  dailyPresences      DormDailyPresence[]
+  tahajjudAssessments DormTahajjudAssessment[]
+  activityAttendances DormActivityAttendance[]
 
   @@unique([semesterId, roomId, date])
   @@index([semesterId, date])
   @@index([createdById])
+}
+
+model DormDailyPresence {
+  journalId String         @db.Uuid
+  studentId String         @db.Uuid
+  status    PresenceStatus
+  note      String?        @db.VarChar(500)
+  journal   DormJournal    @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  student   Student        @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@id([journalId, studentId])
+  @@index([studentId, status])
+}
+
+model DormTahajjudAssessment {
+  journalId String      @db.Uuid
+  studentId String      @db.Uuid
+  completed Boolean
+  journal   DormJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@id([journalId, studentId])
+}
+
+model DormActivityAttendance {
+  journalId String         @db.Uuid
+  studentId String         @db.Uuid
+  activity  DormActivity
+  status    PresenceStatus
+  journal   DormJournal    @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  student   Student        @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@id([journalId, studentId, activity])
+  @@index([studentId, activity, status])
+}
+
+model DormWeeklyReview {
+  id                    String                @id @default(uuid()) @db.Uuid
+  academicYearId        String                @db.Uuid
+  semesterId            String                @db.Uuid
+  roomId                String                @db.Uuid
+  weekStartDate         DateTime              @db.Date
+  adabSubmittedAt       DateTime?
+  violationsSubmittedAt DateTime?
+  createdById           String                @db.Uuid
+  updatedById           String                @db.Uuid
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  semester              Semester              @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  room                  Room                  @relation(fields: [semesterId, roomId], references: [semesterId, id], onDelete: Restrict)
+  createdBy             Profile               @relation("WeeklyReviewCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy             Profile               @relation("WeeklyReviewUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  adabScores            DormWeeklyAdabScore[]
+  violations            DormViolation[]
+
+  @@unique([semesterId, roomId, weekStartDate])
+  @@unique([id, semesterId])
+  @@index([semesterId, weekStartDate])
+}
+
+model DormWeeklyAdabScore {
+  reviewId          String           @db.Uuid
+  studentId         String           @db.Uuid
+  haqLinafsih       Int
+  haqLinafsihNote   String?          @db.VarChar(500)
+  haqLisyaikhih     Int
+  haqLisyaikhihNote String?          @db.VarChar(500)
+  haqLizamilih      Int
+  haqLizamilihNote  String?          @db.VarChar(500)
+  haqLilMakan       Int
+  haqLilMakanNote   String?          @db.VarChar(500)
+  haqLilKitab       Int
+  haqLilKitabNote   String?          @db.VarChar(500)
+  haqLilIlm         Int
+  haqLilIlmNote     String?          @db.VarChar(500)
+  review            DormWeeklyReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@id([reviewId, studentId])
+  @@index([studentId, reviewId])
+}
+
+model DormViolation {
+  id                  String           @id @default(uuid()) @db.Uuid
+  reviewId            String           @db.Uuid
+  studentId           String           @db.Uuid
+  violationType       String           @db.VarChar(160)
+  repetitions         Int
+  pointsPerOccurrence Int
+  review              DormWeeklyReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  student             Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([studentId, reviewId])
+  @@index([reviewId])
 }
 
 model DormAttendance {

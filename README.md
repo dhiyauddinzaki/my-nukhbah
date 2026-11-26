@@ -2,7 +2,7 @@
 
 Mutabaah Yaumiyyah Santri Pesantren Nukhbah Jogja.
 
-My Nukhbah Tahap 3 menyediakan jurnal kegiatan asrama harian, termasuk kehadiran sesi, shalat fardhu, dan foto kegiatan per kamar. Master data santri, kelas, kamar, halaqah, serta periode akademik tersedia melalui Dashboard Admin. Login, role, navigasi responsif, dan tema terang/gelap tersedia sejak Tahap 1.
+My Nukhbah Tahap 3 menyediakan jurnal kegiatan asrama harian dan pekanan: kehadiran, Tahajjud, pendampingan, penilaian adab, dan pelanggaran. Master data santri, kelas, kamar, halaqah, serta periode akademik tersedia melalui Dashboard Admin. Login, role, navigasi responsif, dan tema terang/gelap tersedia sejak Tahap 1.
 
 ## Struktur proyek
 
@@ -136,11 +136,23 @@ Admin bisa menyiapkan periode berikutnya dan melihat periode lain melalui filter
 
 ## Jurnal Kegiatan Asrama (Tahap 3)
 
-- **Akses input**: Admin dan Musyrif/Guru Pengampu Quran dapat mengisi jurnal dari menu **Pembinaan**. Musyrif hanya dapat mengisi kamar yang ditugaskan pada semester aktif.
-- **Akses rekap**: Admin, Kepala Asrama, dan Musyrif dapat melihat kelengkapan jurnal harian per kamar dari menu **Asrama**.
-- **Data harian**: checklist kehadiran sesi (Tahajjud, Absen Pagi, Sekolah, Absen Sore, Kajian Adab, Absen Malam), status shalat fardhu (Muwafiq, JT, MF, Alpha, Izin, Sakit), dan foto Absen Pagi/Sore/Malam.
-- **Foto**: unggahan foto disimpan di Supabase Storage bucket `mutabaah`. Pastikan bucket tersebut tersedia di proyek Supabase.
-- **Periode**: jurnal terikat ke tahun ajaran dan semester aktif, serta hanya dapat diisi untuk tanggal dalam rentang semester aktif.
+- **Akses input**: Admin dan Musyrif dapat mengisi jurnal dari menu **Pembinaan**. Musyrif hanya dapat menyimpan data untuk kamar yang ditugaskan pada semester aktif.
+- **Kehadiran utama**: setiap santri dicatat sebagai Hadir (H), Sakit/UKP (S), Izin (I), atau Alpa (A). Keterangan opsional. Status menjadi nilai awal Pendampingan Pagi/Sore/Malam, dan masih dapat diubah pada masing-masing kartu.
+- **Kriteria harian**: Tahajjud (Ya/Tidak), Pendampingan Pagi, Sore, dan Malam (H/S/I/A). Tiap kartu disimpan secara terpisah; persentase laporan harian dihitung dari empat kartu kegiatan.
+- **Foto**: setiap kartu kegiatan menerima satu foto, termasuk Tahajjud. Input foto mendukung pemilih file/kamera pada perangkat yang mendukung dan penghapusan foto tersimpan. Foto disimpan pada bucket Supabase Storage `mutabaah`; pastikan bucket dan policy Storage tersedia.
+- **Kriteria pekanan**: penilaian Huquq Sittah Senin–Minggu (enam nilai 1–10; nilai di bawah 8 wajib memiliki keterangan), serta entri pelanggaran dengan total poin otomatis dihitung dari pengulangan × poin per kejadian.
+- **Rekap**: Admin dan Kepala Asrama dapat membuka **Daftar Izin** dan rekap pelanggaran pekanan dari menu **Asrama**. Ringkasan kehadiran, penilaian adab, dan pelanggaran santri ditampilkan di menu **Portfolio** bagi role yang memang mendapat akses.
+- **Periode**: jurnal dan penilaian terikat ke tahun ajaran/semester aktif. Input harian dibatasi rentang semester; penilaian pekanan menggunakan pekan yang beririsan dengan semester aktif.
+- **Wali Santri**: portfolio wali belum menampilkan data sampai relasi akun wali–santri tersedia dan dapat dikelola; aplikasi sengaja tidak menebak atau membuka data santri tanpa relasi tersebut.
+
+Setelah mengambil perubahan Tahap 3 terbaru, jalankan migrasi baru di database lokal/dev:
+
+```powershell
+pnpm prisma migrate dev
+pnpm prisma generate
+```
+
+Migrasi `20261126000000_dorm_journal_criteria` menambah data kehadiran, pengiriman per kriteria, penilaian pekanan, dan pelanggaran tanpa menghapus tabel jurnal lama.
 
 ## Modul berikutnya
 

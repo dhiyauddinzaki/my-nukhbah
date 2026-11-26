@@ -1,33 +1,25 @@
-export const dormSessions = [
-  { value: "TAHAJJUD", label: "Tahajjud", hasPhoto: false },
-  { value: "PAGI", label: "Absen Pagi", hasPhoto: true },
-  { value: "SEKOLAH", label: "Sekolah", hasPhoto: false },
-  { value: "SORE", label: "Absen Sore", hasPhoto: true },
-  { value: "KAJIAN_ADAB", label: "Kajian Adab", hasPhoto: false },
-  { value: "MALAM", label: "Absen Malam", hasPhoto: true },
+export const presenceStatuses = [
+  { value: "H", label: "Hadir" },
+  { value: "S", label: "Sakit (di UKP)" },
+  { value: "I", label: "Izin (di luar pesantren)" },
+  { value: "A", label: "Alpa (di luar pesantren tanpa keterangan)" },
 ] as const;
 
-export type DormSessionValue = (typeof dormSessions)[number]["value"];
+export type PresenceStatusValue = (typeof presenceStatuses)[number]["value"];
 
-export const prayers = [
-  { value: "SUBUH", label: "Subuh" },
-  { value: "DZUHUR", label: "Dzuhur" },
-  { value: "ASHAR", label: "Ashar" },
-  { value: "MAGHRIB", label: "Maghrib" },
-  { value: "ISYA", label: "Isya" },
+export const dailyActivities = [
+  { value: "PAGI", label: "Pendampingan Pagi", photoLabel: "Foto kerapian pagi" },
+  { value: "SORE", label: "Pendampingan Sore", photoLabel: "Foto kerapian sore" },
+  { value: "MALAM", label: "Pendampingan Malam", photoLabel: "Foto kerapian malam" },
 ] as const;
 
-export type PrayerNameValue = (typeof prayers)[number]["value"];
-
-export const prayerStatuses = [
-  { value: "MUWAFIQ", label: "Muwafiq" },
-  { value: "JT", label: "JT" },
-  { value: "MF", label: "MF" },
-  { value: "ALPHA", label: "Alpha" },
-  { value: "IZIN", label: "Izin" },
-  { value: "SAKIT", label: "Sakit" },
+export const adabCriteria = [
+  { key: "haqLinafsih", label: "Haq Linafsih" },
+  { key: "haqLisyaikhih", label: "Haq Lisyaikhih" },
+  { key: "haqLizamilih", label: "Haq Lizamilih" },
+  { key: "haqLilMakan", label: "Haq Lil-Makan" },
+  { key: "haqLilKitab", label: "Haq Lil-Kitab" },
+  { key: "haqLilIlm", label: "Haq Lil-Ilm" },
 ] as const;
 
-export type PrayerStatusValue = (typeof prayerStatuses)[number]["value"];
-
-export const photoSessions = dormSessions.filter((session) => session.hasPhoto);
+export type AdabCriterionKey = (typeof adabCriteria)[number]["key"];
