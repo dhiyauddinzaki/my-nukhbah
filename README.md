@@ -154,6 +154,26 @@ pnpm prisma generate
 
 Migrasi `20261126000000_dorm_journal_criteria` menambah data kehadiran, pengiriman per kriteria, penilaian pekanan, dan pelanggaran tanpa menghapus tabel jurnal lama.
 
+## Jurnal Al-Quran (Tahap 4)
+
+- **Akses input**: Admin dan Musyrif/Guru Pengampu Quran dapat mengisi jurnal dari menu **Pembinaan**. Musyrif dibatasi pada halaqah yang ditugaskan pada semester aktif.
+- **Ziyadah**: mencatat surah/ayat awal–akhir dan jumlah baris. Nilai default Ziyadah diambil dari `APP_CONFIG.defaultZiyadahTarget`.
+- **Murajaah**: mencatat surah/ayat awal–akhir, penilaian, dan keterangan bila perlu.
+- **Juziyyah**: mencatat nomor juz (1–30), nilai 0–100, penilaian, dan keterangan.
+- **Penilaian**: `Belum dinilai`, `Lancar`, `Perlu ulang`, atau `Lulus`. Penilaian Perlu Ulang wajib memiliki keterangan.
+- **Riwayat**: 20 entri terakhir halaqah ditampilkan di form Pembinaan. Jurnal Tahfidz juga tampil pada rekap Asrama dan portfolio santri dalam cakupan role.
+- **Periode**: setiap entri terikat tahun ajaran, semester, halaqah, santri, dan tanggal; input dibatasi rentang semester aktif.
+
+Terapkan juga migrasi Tahap 4:
+
+```powershell
+pnpm prisma migrate dev
+pnpm prisma generate
+pnpm dev
+```
+
+Migrasi `20261126010000_tahfidz_journal` menambah tabel jurnal Tahfidz dan tidak mengubah data Tahap 1–3.
+
 ## Modul berikutnya
 
 Tahap 4 mengimplementasikan jurnal Al-Quran (Ziyadah, Murajaah, Juziyyah). Ekstra, rekap Recharts, portfolio PDF, reward/pelanggaran, Mutamayyizun, kalender, dan pengingat WhatsApp mengikuti tahapan produk. Supabase Storage digunakan untuk unggahan foto; `@react-pdf/renderer` digunakan ketika PDF diimplementasikan.

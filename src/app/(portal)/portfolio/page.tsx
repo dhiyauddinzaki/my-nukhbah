@@ -53,7 +53,7 @@ export default async function PortfolioPage({ searchParams }: {
   const selectedEnrollment = enrollments.find((enrollment) => enrollment.studentId === selectedStudentId) ?? enrollments[0];
   const selectedStudent = selectedEnrollment?.student;
 
-  const [absences, weeklyReviews] = selectedStudent && period
+  const [absences, weeklyReviews, tahfidzEntries] = selectedStudent && period
     ? await Promise.all([
         db.dormDailyPresence.findMany({
           where: {
@@ -82,8 +82,17 @@ export default async function PortfolioPage({ searchParams }: {
           },
           orderBy: { weekStartDate: "desc" },
         }),
+        db.tahfidzEntry.findMany({
+          where: {
+            studentId: selectedStudent.id,
+            semesterId: period.id,
+            date: { gte: monthStart, lte: monthEnd },
+          },
+          include: { halaqah: { select: { name: true } } },
+          orderBy: [{ date: "desc" }, { type: "asc" }],
+        }),
       ])
-    : [[], []];
+    : [[], [], []];
 
   const totalPoints = weeklyReviews.flatMap((review) => review.violations)
     .reduce((sum, item) => sum + item.repetitions * item.pointsPerOccurrence, 0);
@@ -139,6 +148,28 @@ export default async function PortfolioPage({ searchParams }: {
                   <li key={`${entry.journalId}:${entry.studentId}`} className="py-3">
                     <p className="font-semibold">{entry.journal.date.toISOString().slice(0, 10)} · {entry.status}</p>
                     <p className="text-sm text-muted-foreground">Kamar {entry.journal.room.name}{entry.note ? ` · ${entry.note}` : ""}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className={card}>
+            <h2 className="text-lg font-bold">Jurnal Al-Quran · {requestedMonth}</h2>
+            {tahfidzEntries.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada jurnal Tahfidz pada bulan ini.</p> : (
+              <ul className="divide-y divide-border">
+                {tahfidzEntries.map((entry) => (
+                  <li key={entry.id} className="py-3">
+                    <p className="font-semibold">{entry.date.toISOString().slice(0, 10)} · {entry.type} · Halaqah {entry.halaqah.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {entry.lineCount ? `${entry.lineCount} baris · ` : ""}
+                      {entry.juzNumber ? `Juz ${entry.juzNumber} · ` : ""}
+                      {entry.fromSurah ? `${entry.fromSurah}${entry.fromAyat ? `:${entry.fromAyat}` : ""}` : ""}
+                      {entry.toSurah ? ` – ${entry.toSurah}${entry.toAyat ? `:${entry.toAyat}` : ""}` : ""}
+                      {entry.score != null ? ` · Nilai ${entry.score}` : ""}
+                      {` · ${entry.assessment}`}
+                      {entry.note ? ` · ${entry.note}` : ""}
+                    </p>
                   </li>
                 ))}
               </ul>

@@ -16,18 +16,20 @@ enum Role {
 }
 
 model Profile {
-  id                   String             @id @db.Uuid
-  displayName          String
-  role                 Role
-  isActive             Boolean            @default(true)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  rooms                Room[]             @relation("RoomSupervisor")
-  halaqahs             Halaqah[]          @relation("HalaqahTeacher")
-  createdJournals      DormJournal[]      @relation("DormJournalCreatedBy")
-  updatedJournals      DormJournal[]      @relation("DormJournalUpdatedBy")
-  createdWeeklyReviews DormWeeklyReview[] @relation("WeeklyReviewCreatedBy")
-  updatedWeeklyReviews DormWeeklyReview[] @relation("WeeklyReviewUpdatedBy")
+  id                    String             @id @db.Uuid
+  displayName           String
+  role                  Role
+  isActive              Boolean            @default(true)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  rooms                 Room[]             @relation("RoomSupervisor")
+  halaqahs              Halaqah[]          @relation("HalaqahTeacher")
+  createdJournals       DormJournal[]      @relation("DormJournalCreatedBy")
+  updatedJournals       DormJournal[]      @relation("DormJournalUpdatedBy")
+  createdWeeklyReviews  DormWeeklyReview[] @relation("WeeklyReviewCreatedBy")
+  updatedWeeklyReviews  DormWeeklyReview[] @relation("WeeklyReviewUpdatedBy")
+  createdTahfidzEntries TahfidzEntry[]     @relation("TahfidzEntryCreatedBy")
+  updatedTahfidzEntries TahfidzEntry[]     @relation("TahfidzEntryUpdatedBy")
 }
 
 enum SemesterName {
@@ -59,6 +61,7 @@ model Semester {
   enrollments    Enrollment[]
   dormJournals   DormJournal[]
   weeklyReviews  DormWeeklyReview[]
+  tahfidzEntries TahfidzEntry[]
 
   @@unique([academicYearId, name])
   @@unique([academicYearId, id])
@@ -76,6 +79,7 @@ model Student {
   activityAttendances DormActivityAttendance[]
   weeklyAdabScores    DormWeeklyAdabScore[]
   dormViolations      DormViolation[]
+  tahfidzEntries      TahfidzEntry[]
 
   @@index([fullName, id])
 }
@@ -108,13 +112,14 @@ model Room {
 }
 
 model Halaqah {
-  id          String       @id @default(uuid()) @db.Uuid
-  semesterId  String       @db.Uuid
-  name        String       @db.VarChar(80)
-  teacherId   String?      @db.Uuid
-  teacher     Profile?     @relation("HalaqahTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
-  semester    Semester     @relation(fields: [semesterId], references: [id], onDelete: Restrict)
-  enrollments Enrollment[]
+  id             String         @id @default(uuid()) @db.Uuid
+  semesterId     String         @db.Uuid
+  name           String         @db.VarChar(80)
+  teacherId      String?        @db.Uuid
+  teacher        Profile?       @relation("HalaqahTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  semester       Semester       @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  enrollments    Enrollment[]
+  tahfidzEntries TahfidzEntry[]
 
   @@unique([semesterId, name])
   @@unique([semesterId, id])
@@ -165,6 +170,52 @@ enum PrayerStatus {
   ALPHA
   IZIN
   SAKIT
+}
+
+enum TahfidzType {
+  ZIYADAH
+  MURAJAAH
+  JUZIYYAH
+}
+
+enum TahfidzAssessment {
+  BELUM_DINILAI
+  LANCAR
+  PERLU_ULANG
+  LULUS
+}
+
+model TahfidzEntry {
+  id             String            @id @default(uuid()) @db.Uuid
+  academicYearId String            @db.Uuid
+  semesterId     String            @db.Uuid
+  halaqahId      String            @db.Uuid
+  studentId      String            @db.Uuid
+  date           DateTime          @db.Date
+  type           TahfidzType
+  fromSurah      String?           @db.VarChar(80)
+  fromAyat       Int?
+  toSurah        String?           @db.VarChar(80)
+  toAyat         Int?
+  lineCount      Int?
+  juzNumber      Int?
+  assessment     TahfidzAssessment @default(BELUM_DINILAI)
+  score          Int?
+  note           String?           @db.VarChar(500)
+  createdById    String            @db.Uuid
+  updatedById    String            @db.Uuid
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  semester       Semester          @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  halaqah        Halaqah           @relation(fields: [semesterId, halaqahId], references: [semesterId, id], onDelete: Restrict)
+  student        Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  createdBy      Profile           @relation("TahfidzEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      Profile           @relation("TahfidzEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([semesterId, halaqahId, studentId, date, type])
+  @@index([semesterId, halaqahId, date])
+  @@index([studentId, date])
+  @@index([type, assessment])
 }
 
 enum PresenceStatus {

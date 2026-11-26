@@ -79,6 +79,35 @@ export default async function AsramaPage({ searchParams }: {
         }),
       ])
     : [[], []];
+  const halaqahs = period
+    ? await db.halaqah.findMany({
+        where: {
+          semesterId: period.id,
+          ...(profile.role === "MUSYRIF" ? { teacherId: profile.id } : {}),
+        },
+        include: {
+          teacher: { select: { displayName: true } },
+          _count: { select: { enrollments: true } },
+        },
+        orderBy: { name: "asc" },
+      })
+    : [];
+  const tahfidzEntries = period
+    ? await db.tahfidzEntry.findMany({
+        where: {
+          semesterId: period.id,
+          date: new Date(selectedDate + "T00:00:00.000Z"),
+          ...(profile.role === "MUSYRIF"
+            ? { halaqah: { teacherId: profile.id } }
+            : {}),
+        },
+        include: {
+          halaqah: { select: { name: true } },
+          student: { select: { fullName: true } },
+        },
+        orderBy: [{ halaqah: { name: "asc" } }, { student: { fullName: "asc" } }, { type: "asc" }],
+      })
+    : [];
 
   return (
     <>
@@ -125,6 +154,9 @@ export default async function AsramaPage({ searchParams }: {
               </Button>
             </>
           )}
+          <Button asChild variant={selectedView === "tahfidz" ? undefined : "outline"}>
+            <Link href={`/asrama?date=${selectedDate}&view=tahfidz`}>Jurnal Tahfidz</Link>
+          </Button>
         </nav>
 
         {!period && <p className="mt-4 text-sm text-muted-foreground">Belum ada semester aktif.</p>}
@@ -166,6 +198,43 @@ export default async function AsramaPage({ searchParams }: {
                 </ul>
                 <p className="mt-3 font-bold">Total poin periode ini: {violations.reduce((sum, item) => sum + item.repetitions * item.pointsPerOccurrence, 0)}</p>
               </>
+            )}
+          </div>
+        )}
+
+        {period && selectedView === "tahfidz" && (
+          <div className="mt-4">
+            <h3 className="font-bold">Jurnal Tahfidz · {selectedDate}</h3>
+            {halaqahs.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Belum ada halaqah dalam cakupan akses.</p> : (
+              <ul className="mt-3 divide-y divide-border">
+                {halaqahs.map((halaqah) => {
+                  const rows = tahfidzEntries.filter((entry) => entry.halaqahId === halaqah.id);
+                  return (
+                    <li key={halaqah.id} className="py-4">
+                      <p className="font-semibold">{halaqah.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {halaqah.teacher?.displayName ?? "Belum ada guru pengampu"} · {halaqah._count.enrollments} santri
+                      </p>
+                      {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Belum ada jurnal Tahfidz pada tanggal ini.</p> : (
+                        <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {rows.map((entry) => (
+                            <li key={entry.id} className="rounded-xl border border-border p-3 text-sm">
+                              <p className="font-semibold">{entry.student.fullName}</p>
+                              <p className="text-muted-foreground">
+                                {entry.type} · {entry.lineCount ? `${entry.lineCount} baris · ` : ""}
+                                {entry.juzNumber ? `Juz ${entry.juzNumber} · ` : ""}
+                                {entry.score != null ? `Nilai ${entry.score} · ` : ""}
+                                {entry.assessment}
+                                {entry.note ? ` · ${entry.note}` : ""}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         )}

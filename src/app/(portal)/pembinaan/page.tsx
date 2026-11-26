@@ -3,6 +3,7 @@ import { CalendarDays } from "lucide-react";
 import { APP_CONFIG } from "@/config/constants";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";
 import { DormJournalForm } from "@/features/dorm/journal-form";
+import { TahfidzForm } from "@/features/tahfidz/tahfidz-form";
 import { canAccess } from "@/features/auth/permissions";
 import { requireProfile } from "@/features/auth/session";
 import { db } from "@/lib/db";
@@ -18,7 +19,7 @@ export default async function PembinaanPage({ searchParams }: {
   const profile = await requireProfile();
   if (!canAccess(profile.role, "pembinaan")) notFound();
 
-  const { room: roomParam, date: dateParam } = await searchParams;
+  const { room: roomParam, halaqah: halaqahParam, date: dateParam } = await searchParams;
   const period = await getActiveSemester();
   const rooms = period
     ? await db.room.findMany({
@@ -30,9 +31,21 @@ export default async function PembinaanPage({ searchParams }: {
         select: { id: true, name: true },
       })
     : [];
+  const halaqahs = period
+    ? await db.halaqah.findMany({
+        where: {
+          semesterId: period.id,
+          ...(profile.role === "MUSYRIF" ? { teacherId: profile.id } : {}),
+        },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
 
   const requestedRoom = typeof roomParam === "string" && z.string().uuid().safeParse(roomParam).success ? roomParam : "";
   const selectedRoomId = rooms.some((r) => r.id === requestedRoom) ? requestedRoom : rooms[0]?.id ?? "";
+  const requestedHalaqah = typeof halaqahParam === "string" && z.string().uuid().safeParse(halaqahParam).success ? halaqahParam : "";
+  const selectedHalaqahId = halaqahs.some((halaqah) => halaqah.id === requestedHalaqah) ? requestedHalaqah : halaqahs[0]?.id ?? "";
   const rawDate = typeof dateParam === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayIso();
   const selectedDate = period && rawDate >= period.startDate.toISOString().slice(0, 10) && rawDate <= period.endDate.toISOString().slice(0, 10)
     ? rawDate
@@ -72,6 +85,31 @@ export default async function PembinaanPage({ searchParams }: {
           include: { adabScores: true, violations: true },
         })
     : null;
+  const halaqahStudents = period && selectedHalaqahId
+    ? await db.enrollment.findMany({
+        where: { semesterId: period.id, halaqahId: selectedHalaqahId },
+        include: { student: { select: { id: true, nis: true, fullName: true } } },
+        orderBy: { student: { fullName: "asc" } },
+      })
+    : [];
+  const tahfidzEntries = period && selectedHalaqahId
+    ? await db.tahfidzEntry.findMany({
+        where: {
+          semesterId: period.id,
+          halaqahId: selectedHalaqahId,
+          date: new Date(selectedDate + "T00:00:00.000Z"),
+        },
+        orderBy: [{ student: { fullName: "asc" } }, { type: "asc" }],
+      })
+    : [];
+  const tahfidzHistory = period && selectedHalaqahId
+    ? await db.tahfidzEntry.findMany({
+        where: { semesterId: period.id, halaqahId: selectedHalaqahId },
+        include: { student: { select: { fullName: true } } },
+        orderBy: [{ date: "desc" }, { student: { fullName: "asc" } }, { type: "asc" }],
+        take: 20,
+      })
+    : [];
 
   return (
     <>
@@ -86,7 +124,7 @@ export default async function PembinaanPage({ searchParams }: {
 
       <section className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <h2 className="text-lg font-bold">Jurnal Kegiatan Asrama</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Isi kehadiran harian, shalat fardhu, dan foto kegiatan kamar.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Isi kehadiran harian, pendampingan, dan foto kegiatan kamar.</p>
 
         {!period && <p className="mt-4 text-sm text-muted-foreground">Belum ada semester aktif. Hubungi Admin untuk mengaktifkan periode.</p>}
         {period && rooms.length === 0 && (
@@ -124,6 +162,55 @@ export default async function PembinaanPage({ searchParams }: {
               adab: !!weeklyReview?.adabSubmittedAt,
               violations: !!weeklyReview?.violationsSubmittedAt,
             }}
+          />
+        )}
+      </section>
+      <section className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
+        <h2 className="text-lg font-bold">Jurnal Al-Quran</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Ziyadah, Murajaah, dan Ujian / Juziyyah per santri di halaqah.</p>
+        {!period && <p className="mt-4 text-sm text-muted-foreground">Belum ada semester aktif.</p>}
+        {period && halaqahs.length === 0 && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            {profile.role === "MUSYRIF" ? "Anda belum ditugaskan ke halaqah pada semester aktif." : "Belum ada halaqah pada semester aktif."}
+          </p>
+        )}
+        {period && halaqahs.length > 0 && (
+          <TahfidzForm
+            key={`${selectedHalaqahId}:${selectedDate}`}
+            halaqahs={halaqahs}
+            selectedHalaqahId={selectedHalaqahId}
+            selectedDate={selectedDate}
+            minDate={period.startDate.toISOString().slice(0, 10)}
+            maxDate={period.endDate.toISOString().slice(0, 10)}
+            students={halaqahStudents.map((enrollment) => enrollment.student)}
+            entries={tahfidzEntries.map((entry) => ({
+              studentId: entry.studentId,
+              type: entry.type,
+              fromSurah: entry.fromSurah,
+              fromAyat: entry.fromAyat,
+              toSurah: entry.toSurah,
+              toAyat: entry.toAyat,
+              lineCount: entry.lineCount,
+              juzNumber: entry.juzNumber,
+              assessment: entry.assessment,
+              score: entry.score,
+              note: entry.note,
+            }))}
+            history={tahfidzHistory.map((entry) => ({
+              studentId: entry.studentId,
+              type: entry.type,
+              date: entry.date,
+              updatedAt: entry.updatedAt,
+              fromSurah: entry.fromSurah,
+              fromAyat: entry.fromAyat,
+              toSurah: entry.toSurah,
+              toAyat: entry.toAyat,
+              lineCount: entry.lineCount,
+              juzNumber: entry.juzNumber,
+              assessment: entry.assessment,
+              score: entry.score,
+              note: entry.note,
+            }))}
           />
         )}
       </section>
