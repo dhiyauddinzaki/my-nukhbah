@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ClipboardCheck, MoonStar, ShieldCheck, Sunrise, Sunset, Trash2 } from "lucide-react";
+import { Award, CalendarDays, ClipboardCheck, MoonStar, ShieldCheck, Sunrise, Sunset, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpandableCard } from "@/components/ui/expandable-card";
 import {
@@ -25,6 +25,12 @@ type ViolationRow = {
   violationType: string;
   repetitions: number;
   pointsPerOccurrence: number;
+};
+type AchievementRow = {
+  id: string;
+  studentId: string;
+  title: string;
+  description: string;
 };
 
 const fieldClass = "min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary";
@@ -86,6 +92,7 @@ export function DormJournalForm({
   activityRows,
   adabRows,
   violationRows,
+  achievementRows,
   photos,
   submitted,
 }: {
@@ -102,6 +109,7 @@ export function DormJournalForm({
   activityRows: ActivityRow[];
   adabRows: AdabRow[];
   violationRows: ViolationRow[];
+  achievementRows: AchievementRow[];
   photos: { tahajjud: boolean; pagi: boolean; sore: boolean; malam: boolean };
   submitted: {
     presence: boolean;
@@ -155,6 +163,7 @@ export function DormJournalForm({
   const [adab, setAdab] = useState(adabInitial);
   const [clearedAdab, setClearedAdab] = useState<Set<string>>(new Set());
   const [violations, setViolations] = useState(violationRows.map((row) => ({ ...row })));
+  const [achievements, setAchievements] = useState<AchievementRow[]>(achievementRows.map((row) => ({ ...row })));
 
   async function save(
     form: HTMLFormElement,
@@ -558,6 +567,53 @@ export function DormJournalForm({
                 <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan pelanggaran pekanan"}</Button>
               </div>
               {message("violations")}
+            </form>
+          </ExpandableCard>
+
+          <ExpandableCard icon={Award} title="Prestasi dan catatan positif" subtitle={`Catat apresiasi santri pekan ${weekStartDate} – ${weekEndDate.toISOString().slice(0, 10)}`}>
+            <form onSubmit={(event) => saveWeeklyForm(event, {
+              criterion: "achievements",
+              entries: achievements.map((row) => ({
+                studentId: row.studentId,
+                title: row.title.trim(),
+                description: row.description.trim(),
+              })),
+            }, "achievements")} className="space-y-4">
+              <p className="text-sm text-muted-foreground">Prestasi tersimpan akan tampil untuk Kepala Asrama pada rekap pekanan kamar ini.</p>
+              <div className="space-y-3">
+                {achievements.map((row, index) => (
+                  <article key={row.id} className="grid gap-3 rounded-xl border border-border p-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm font-semibold">
+                      Santri
+                      <select className={fieldClass} required value={row.studentId}
+                        onChange={(event) => setAchievements((current) => current.map((item, i) => i === index ? { ...item, studentId: event.target.value } : item))}>
+                        {students.map((student) => <option key={student.id} value={student.id}>{student.fullName}</option>)}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm font-semibold">
+                      Prestasi / apresiasi
+                      <input className={fieldClass} maxLength={160} required value={row.title}
+                        onChange={(event) => setAchievements((current) => current.map((item, i) => i === index ? { ...item, title: event.target.value } : item))} />
+                    </label>
+                    <label className="grid gap-1 text-sm font-semibold sm:col-span-2">
+                      Keterangan (opsional)
+                      <textarea className={`${fieldClass} min-h-20 py-2`} maxLength={500} value={row.description}
+                        onChange={(event) => setAchievements((current) => current.map((item, i) => i === index ? { ...item, description: event.target.value } : item))} />
+                    </label>
+                    <Button type="button" variant="outline" className="sm:col-span-2" onClick={() => setAchievements((current) => current.filter((_, i) => i !== index))}>
+                      Hapus prestasi ini
+                    </Button>
+                  </article>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" disabled={students.length === 0} onClick={() => setAchievements((current) => [
+                  ...current,
+                  { id: crypto.randomUUID(), studentId: students[0]?.id ?? "", title: "", description: "" },
+                ])}>Tambah prestasi</Button>
+                <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan prestasi"}</Button>
+              </div>
+              {message("achievements")}
             </form>
           </ExpandableCard>
           </>}

@@ -106,7 +106,7 @@ export default async function PembinaanPage({ searchParams }: {
               weekStartDate: new Date(selectedWeekStartDate + "T00:00:00.000Z"),
             },
           },
-          include: { adabScores: true, violations: true },
+          include: { adabScores: true, violations: true, achievements: true },
         })
     : null;
   const halaqahStudents = period && selectedHalaqahId
@@ -185,6 +185,10 @@ export default async function PembinaanPage({ searchParams }: {
             activityRows={journal?.activityAttendances ?? []}
             adabRows={weeklyReview?.adabScores ?? []}
             violationRows={weeklyReview?.violations ?? []}
+            achievementRows={weeklyReview?.achievements.map((row) => ({
+              ...row,
+              description: row.description ?? "",
+            })) ?? []}
             photos={{
               tahajjud: !!journal?.tahajjudPhotoPath,
               pagi: !!journal?.pagiPhotoPath,

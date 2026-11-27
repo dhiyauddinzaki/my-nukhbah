@@ -9,6 +9,7 @@ import { GroupPanel } from "@/features/academic/master-groups";
 import { ExtraGroupPanel } from "@/features/academic/extra-groups";
 import { getActiveSemester, semesterLabel } from "@/features/academic/period";
 import { AssignmentForm, StudentForm } from "@/features/academic/student-forms";
+import { PortfolioMediaForm } from "@/features/portfolio/media-form";
 import { requireProfile } from "@/features/auth/session";
 import { db } from "@/lib/db";
 
@@ -46,7 +47,7 @@ export default async function MasterPage({ searchParams }: {
       ],
     }),
   };
-  const [total, classrooms, rooms, halaqahs, staff, extraGroups, extraStudents] = await Promise.all([
+  const [total, classrooms, rooms, halaqahs, staff, extraGroups, extraStudents, guardians, guardianLinks, signers] = await Promise.all([
     db.student.count({ where }),
     semesterId ? db.classroom.findMany({ where: { semesterId }, orderBy: { name: "asc" } }) : [],
     semesterId ? db.room.findMany({ where: { semesterId }, include: { supervisor: { select: { id: true, displayName: true } } }, orderBy: { name: "asc" } }) : [],
@@ -64,11 +65,25 @@ export default async function MasterPage({ searchParams }: {
       },
       orderBy: [{ program: "asc" }, { name: "asc" }],
     }) : [],
-    editable ? db.student.findMany({
+    db.student.findMany({
       select: { id: true, nis: true, fullName: true },
       orderBy: [{ fullName: "asc" }, { id: "asc" }],
       take: 2000,
-    }) : [],
+    }),
+    db.profile.findMany({
+      where: { role: "WALI_SANTRI", isActive: true },
+      select: { id: true, displayName: true },
+      orderBy: { displayName: "asc" },
+    }),
+    db.guardianStudent.findMany({
+      where: { isActive: true },
+      select: { guardianId: true, studentId: true },
+    }),
+    db.profile.findMany({
+      where: { role: { in: ["MUSYRIF", "KEPALA_ASRAMA"] }, isActive: true },
+      select: { id: true, displayName: true, role: true, signaturePath: true },
+      orderBy: { displayName: "asc" },
+    }),
   ]);
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
   const pageNumber = Number.isSafeInteger(requestedPage) ? Math.min(lastPage, Math.max(1, requestedPage)) : 1;
@@ -131,6 +146,30 @@ export default async function MasterPage({ searchParams }: {
             </>
           )}
         </section>
+        <section className={`${card} lg:col-span-2`}>
+          <div>
+            <h2 className="text-xl font-bold">Foto santri & tanda tangan</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Unggah foto close-up pada detail santri di bawah. Tanda tangan Murabbi, Muhaffizh, dan Kepala Asrama dikelola di sini.
+              Berkas privat di Storage; format JPG, PNG, atau WebP, maksimal 5 MB.
+            </p>
+          </div>
+          {signers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada Murabbi, Muhaffizh, atau Kepala Asrama aktif.</p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {signers.map((signer) => (
+                <div key={signer.id} className="space-y-2 rounded-xl border border-border p-3">
+                  <p className="text-sm font-semibold">
+                    {signer.displayName} · {signer.role === "KEPALA_ASRAMA" ? "Kepala Asrama" : "Murabbi / Muhaffizh"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{signer.signaturePath ? "Tanda tangan sudah diunggah." : "Belum ada tanda tangan."}</p>
+                  <PortfolioMediaForm kind="profileSignature" targetId={signer.id} label="Gambar tanda tangan" />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
         <section className={card}>
           <h2 className="text-lg font-bold">Tambah tahun ajaran</h2>
           <MasterForm label="Buat tahun ajaran" resetOnSuccess>
@@ -178,6 +217,55 @@ export default async function MasterPage({ searchParams }: {
         </section>
       )}
       <section className={card}>
+        <div>
+          <h2 className="text-xl font-bold">Akses portfolio wali</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Kaitkan akun Wali Santri dengan anaknya. Setiap penyimpanan mengganti daftar aktif untuk wali yang dipilih.
+          </p>
+        </div>
+        {guardians.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Belum ada profil Wali Santri aktif. Buat profil dengan role WALI_SANTRI terlebih dahulu.</p>
+        ) : extraStudents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Belum ada data santri untuk ditautkan.</p>
+        ) : (
+          <div className="space-y-4">
+            {guardians.map((guardian) => (
+              <details key={guardian.id} className="rounded-xl border border-border p-3">
+                <summary className="cursor-pointer font-semibold">{guardian.displayName}</summary>
+                <div className="pt-3">
+                  <MasterForm label="Simpan relasi wali–santri">
+                    <Hidden name="operation" value="guardianRoster" />
+                    <Hidden name="guardianId" value={guardian.id} />
+                    <label className="grid gap-1 text-sm font-semibold sm:col-span-2">
+                      Santri yang dapat dilihat
+                      <select
+                        name="studentIds"
+                        multiple
+                        size={Math.min(10, Math.max(4, extraStudents.length))}
+                        className="min-h-28 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        {extraStudents.map((student) => (
+                          <option
+                            key={student.id}
+                            value={student.id}
+                            selected={guardianLinks.some((link) => link.guardianId === guardian.id && link.studentId === student.id)}
+                          >
+                            {student.fullName} · NIS {student.nis}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        Gunakan Ctrl (Windows) atau Command (Mac) untuk memilih beberapa santri. Simpan mengganti daftar aktif.
+                      </span>
+                    </label>
+                  </MasterForm>
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className={card}>
         <h2 className="text-lg font-bold">Santri dan penempatan <span className="text-sm font-normal text-muted-foreground">({total})</span></h2>
         {(editable || !semesterId) && (
           <details>
@@ -207,6 +295,14 @@ export default async function MasterPage({ searchParams }: {
                     <StudentForm student={student} />
                   </details>
                 )}
+                <details>
+                  <summary className="cursor-pointer py-1 text-sm text-muted-foreground">
+                    Foto close-up · {student.portraitPath ? "sudah tersedia" : "belum diunggah"}
+                  </summary>
+                  <div className="pt-2">
+                    <PortfolioMediaForm kind="studentPortrait" targetId={student.id} label="Foto santri" />
+                  </div>
+                </details>
                 {semesterId && editable && (
                   <details>
                     <summary className="cursor-pointer py-1 text-sm text-muted-foreground">Atur penempatan</summary>

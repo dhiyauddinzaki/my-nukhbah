@@ -1,0 +1,9 @@
+ALTER TABLE "Student"
+ADD COLUMN "portraitPath" VARCHAR(500);
+
+ALTER TABLE "Profile"
+ADD COLUMN "signaturePath" VARCHAR(500);
+
+ALTER TABLE "PortfolioNarrative"
+ADD COLUMN "openingNote" VARCHAR(1500) NOT NULL DEFAULT '',
+ADD COLUMN "developmentNote" VARCHAR(1500) NOT NULL DEFAULT '';

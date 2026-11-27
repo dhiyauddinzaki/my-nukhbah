@@ -4,7 +4,7 @@ export type AppRole = (typeof roles)[number];
 export const roleLabel: Record<AppRole, string> = {
   ADMIN: "Admin",
   KEPALA_ASRAMA: "Kepala Asrama",
-  MUSYRIF: "Musyrif / Guru Pengampu Quran",
+  MUSYRIF: "Murabbi / Muhaffizh",
   WALI_SANTRI: "Wali Santri",
 };
 

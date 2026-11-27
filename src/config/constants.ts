@@ -2,7 +2,7 @@ export const APP_CONFIG = {
   name: "My Hidya",
   fullName: "Mutabaah Yaumiyyah Pesantren Hidayatullah Jogja",
   pesantrenName: "Pesantren Hidayatullah Jogja",
-  shortName: "hHidayatullah",
+  shortName: "Hidayatullah",
   defaultZiyadahTarget: 5,
   defaultMurajaahTarget: 1,
   defaultTahfizhIntensifTarget: 1,

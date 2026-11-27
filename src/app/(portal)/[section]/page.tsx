@@ -14,7 +14,7 @@ const plannedContent: Record<Section, string[]> = {
   ekstra: ["Jurnal Tahfizh Intensif", "Jurnal Tahsin UMMI"],
   portfolio: ["Catatan perkembangan bulanan", "Unduh portfolio PDF"],
   kalender: ["Agenda akademik"],
-  "rekap-admin": ["Rekap per musyrif", "Rekap per santri", "Grafik keseluruhan"],
+  "rekap-admin": ["Rekap per Murabbi", "Rekap per Muhaffizh", "Grafik keseluruhan"],
 };
 
 export default async function SectionPage({ params, searchParams }: {

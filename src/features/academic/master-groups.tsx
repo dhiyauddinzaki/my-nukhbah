@@ -20,7 +20,7 @@ function GroupForm({ kind, semesterId, staff, group }: {
       <Hidden name="kind" value={kind} />
       <Field label="Nama" name="name" defaultValue={group?.name} maxLength={80} required />
       {kind === "classroom" ? <Hidden name="staffId" value="" /> : (
-        <Select label={kind === "room" ? "Musyrif" : "Guru Pengampu Quran"} name="staffId" defaultValue={staff.find(({ id }) => id === group?.staff?.id)?.id ?? ""}>
+        <Select label={kind === "room" ? "Murabbi" : "Muhaffizh"} name="staffId" defaultValue={staff.find(({ id }) => id === group?.staff?.id)?.id ?? ""}>
           <option value="">Belum ditentukan</option>
           {group?.staff && !staff.some(({ id }) => id === group.staff?.id) && (
             <option value={group.staff.id} disabled>{group.staff.displayName} (tidak aktif)</option>

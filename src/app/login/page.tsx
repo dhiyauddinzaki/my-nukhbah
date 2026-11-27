@@ -3,13 +3,17 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme";
 import { APP_CONFIG } from "@/config/constants";
 import { getSupabaseConfig } from "@/features/auth/config";
+import { ForgotPasswordForm } from "@/features/auth/forgot-password-form";
 import { LoginForm } from "@/features/auth/login-form";
 import { home } from "@/features/auth/permissions";
 import { getActiveProfile } from "@/features/auth/session";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const profile = await getActiveProfile();
   if (profile) redirect(home[profile.role]);
+  const params = await searchParams;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl items-center px-4 py-6 sm:p-8">
@@ -29,7 +33,21 @@ export default async function LoginPage() {
           <div className="mb-8 flex justify-end"><ThemeToggle /></div>
           <h1 className="text-3xl font-bold tracking-tight">Masuk ke {APP_CONFIG.name}</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Gunakan akun yang diberikan oleh admin pesantren.</p>
+          {params.passwordUpdated === "1" && (
+            <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+              Kata sandi berhasil diperbarui. Silakan masuk kembali.
+            </p>
+          )}
+          {params.reset && (
+            <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru.
+            </p>
+          )}
           <LoginForm configured={!!getSupabaseConfig()} />
+          <details className="mt-5">
+            <summary className="cursor-pointer text-sm font-semibold text-primary">Lupa kata sandi?</summary>
+            <ForgotPasswordForm configured={!!getSupabaseConfig()} />
+          </details>
         </section>
       </div>
     </main>

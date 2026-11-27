@@ -27,6 +27,11 @@ const commands = z.discriminatedUnion("operation", [
     fullName: z.string().trim().min(1).max(120),
   }),
   z.object({
+    operation: z.literal("guardianRoster"),
+    guardianId: uuid,
+    studentIds: z.array(uuid).max(2000),
+  }),
+  z.object({
     operation: z.literal("group"),
     semesterId: uuid,
     groupId: optionalId,
@@ -115,7 +120,7 @@ async function saveGroup(tx: Transaction, input: Extract<Command, { operation: "
   const { semesterId, groupId, staffId, name, kind } = input;
   if (staffId && kind !== "classroom") {
     const staff = await tx.profile.findFirst({ where: { id: staffId, role: "MUSYRIF", isActive: true } });
-    if (!staff) throw new InputError("Pilih Musyrif / Guru Pengampu Quran yang aktif.");
+    if (!staff) throw new InputError(kind === "room" ? "Pilih Murabbi aktif." : "Pilih Muhaffizh aktif.");
   }
   const where = groupId ? { semesterId_id: { semesterId, id: groupId } } : null;
 
@@ -147,6 +152,28 @@ async function applyCommand(tx: Transaction, input: Command) {
       else await tx.student.create({ data: { nis, fullName } });
       return;
     }
+    case "guardianRoster": {
+      if (new Set(input.studentIds).size !== input.studentIds.length) {
+        throw new InputError("Daftar santri mengandung pilihan ganda.");
+      }
+      const guardian = await tx.profile.findFirst({
+        where: { id: input.guardianId, role: "WALI_SANTRI", isActive: true },
+        select: { id: true },
+      });
+      if (!guardian) throw new InputError("Pilih akun Wali Santri yang aktif.");
+      await tx.guardianStudent.updateMany({
+        where: { guardianId: guardian.id, isActive: true },
+        data: { isActive: false },
+      });
+      for (const studentId of input.studentIds) {
+        await tx.guardianStudent.upsert({
+          where: { guardianId_studentId: { guardianId: guardian.id, studentId } },
+          create: { guardianId: guardian.id, studentId, isActive: true },
+          update: { isActive: true },
+        });
+      }
+      return;
+    }
   }
 
   const semester = await tx.semester.findFirst({
@@ -161,7 +188,7 @@ async function applyCommand(tx: Transaction, input: Command) {
       where: { id: input.teacherId, role: "MUSYRIF", isActive: true },
       select: { id: true },
     });
-    if (!teacher) throw new InputError("Pilih Muhaffizh / Guru Pengampu yang aktif.");
+    if (!teacher) throw new InputError("Pilih Muhaffizh aktif.");
     if (!input.groupId) {
       const maxGroups = input.program === "TAHFIZH_INTENSIF" ? 5 : 10;
       const count = await tx.extraHalaqah.count({ where: { semesterId: semester.id, program: input.program } });
@@ -248,7 +275,9 @@ export async function saveMasterData(data: FormData): Promise<{ ok: boolean; mes
   if (profile?.role !== "ADMIN") return { ok: false, message: "Akses hanya untuk Admin." };
 
   const rawData: Record<string, FormDataEntryValue | FormDataEntryValue[]> = Object.fromEntries(data);
-  if (data.get("operation") === "extraRoster") rawData.studentIds = data.getAll("studentIds");
+  if (data.get("operation") === "extraRoster" || data.get("operation") === "guardianRoster") {
+    rawData.studentIds = data.getAll("studentIds");
+  }
   const parsed = commands.safeParse(rawData);
   if (!parsed.success) return { ok: false, message: "Periksa isian yang kosong, terlalu panjang, atau tidak valid." };
 

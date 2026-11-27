@@ -2,6 +2,43 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model GuardianStudent {
+  id         String   @id @default(uuid()) @db.Uuid
+  guardianId String   @db.Uuid
+  studentId  String   @db.Uuid
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  guardian   Profile  @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([guardianId, studentId])
+  @@index([guardianId, isActive])
+  @@index([studentId, isActive])
+}
+
+model PortfolioNarrative {
+  id              String   @id @default(uuid()) @db.Uuid
+  academicYearId  String   @db.Uuid
+  semesterId      String   @db.Uuid
+  studentId       String   @db.Uuid
+  monthStart      DateTime @db.Date
+  strengths       String   @default("") @db.VarChar(1500)
+  growthAreas     String   @default("") @db.VarChar(1500)
+  recommendation  String   @default("") @db.VarChar(1500)
+  openingNote     String   @default("") @db.VarChar(1500)
+  developmentNote String   @default("") @db.VarChar(1500)
+  authorId        String   @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  semester        Semester @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  author          Profile  @relation("PortfolioNarrativeAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@unique([semesterId, studentId, monthStart])
+  @@index([studentId, monthStart])
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -20,6 +57,7 @@ model Profile {
   displayName             String
   role                    Role
   isActive                Boolean                 @default(true)
+  signaturePath           String?                 @db.VarChar(500)
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt
   rooms                   Room[]                  @relation("RoomSupervisor")
@@ -37,6 +75,8 @@ model Profile {
   updatedIntensiveEntries TahfizhIntensiveEntry[] @relation("IntensiveEntryUpdatedBy")
   createdUmmiEntries      UmmiWeeklyEntry[]       @relation("UmmiEntryCreatedBy")
   updatedUmmiEntries      UmmiWeeklyEntry[]       @relation("UmmiEntryUpdatedBy")
+  guardianStudents        GuardianStudent[]
+  portfolioNarratives     PortfolioNarrative[]    @relation("PortfolioNarrativeAuthor")
 }
 
 enum SemesterName {
@@ -54,26 +94,27 @@ model AcademicYear {
 }
 
 model Semester {
-  id               String                   @id @default(uuid()) @db.Uuid
-  academicYearId   String                   @db.Uuid
-  name             SemesterName
-  startDate        DateTime                 @db.Date
-  endDate          DateTime                 @db.Date
-  isActive         Boolean                  @default(false)
-  closedAt         DateTime?
-  academicYear     AcademicYear             @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-  classrooms       Classroom[]
-  rooms            Room[]
-  halaqahs         Halaqah[]
-  enrollments      Enrollment[]
-  dormJournals     DormJournal[]
-  weeklyReviews    DormWeeklyReview[]
-  tahfidzEntries   TahfidzEntry[]
-  extraEntries     ExtraWeeklyEntry[]
-  extraHalaqahs    ExtraHalaqah[]
-  extraAssignments ExtraStudentAssignment[]
-  intensiveEntries TahfizhIntensiveEntry[]
-  ummiEntries      UmmiWeeklyEntry[]
+  id                  String                   @id @default(uuid()) @db.Uuid
+  academicYearId      String                   @db.Uuid
+  name                SemesterName
+  startDate           DateTime                 @db.Date
+  endDate             DateTime                 @db.Date
+  isActive            Boolean                  @default(false)
+  closedAt            DateTime?
+  academicYear        AcademicYear             @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  classrooms          Classroom[]
+  rooms               Room[]
+  halaqahs            Halaqah[]
+  enrollments         Enrollment[]
+  dormJournals        DormJournal[]
+  weeklyReviews       DormWeeklyReview[]
+  tahfidzEntries      TahfidzEntry[]
+  extraEntries        ExtraWeeklyEntry[]
+  extraHalaqahs       ExtraHalaqah[]
+  extraAssignments    ExtraStudentAssignment[]
+  intensiveEntries    TahfizhIntensiveEntry[]
+  ummiEntries         UmmiWeeklyEntry[]
+  portfolioNarratives PortfolioNarrative[]
 
   @@unique([academicYearId, name])
   @@unique([academicYearId, id])
@@ -83,6 +124,7 @@ model Student {
   id                  String                   @id @default(uuid()) @db.Uuid
   nis                 String                   @unique @db.VarChar(32)
   fullName            String                   @db.VarChar(120)
+  portraitPath        String?                  @db.VarChar(500)
   enrollments         Enrollment[]
   dormAttendances     DormAttendance[]
   prayerAttendances   PrayerAttendance[]
@@ -91,11 +133,14 @@ model Student {
   activityAttendances DormActivityAttendance[]
   weeklyAdabScores    DormWeeklyAdabScore[]
   dormViolations      DormViolation[]
+  dormAchievements    DormAchievement[]
   tahfidzEntries      TahfidzEntry[]
   extraEntries        ExtraWeeklyEntry[]
   extraAssignments    ExtraStudentAssignment[]
   intensiveEntries    TahfizhIntensiveEntry[]
   ummiEntries         UmmiWeeklyEntry[]
+  guardians           GuardianStudent[]
+  portfolioNarratives PortfolioNarrative[]
 
   @@index([fullName, id])
 }
@@ -501,23 +546,25 @@ model DormActivityAttendance {
 }
 
 model DormWeeklyReview {
-  id                    String                @id @default(uuid()) @db.Uuid
-  academicYearId        String                @db.Uuid
-  semesterId            String                @db.Uuid
-  roomId                String                @db.Uuid
-  weekStartDate         DateTime              @db.Date
-  adabSubmittedAt       DateTime?
-  violationsSubmittedAt DateTime?
-  createdById           String                @db.Uuid
-  updatedById           String                @db.Uuid
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  semester              Semester              @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
-  room                  Room                  @relation(fields: [semesterId, roomId], references: [semesterId, id], onDelete: Restrict)
-  createdBy             Profile               @relation("WeeklyReviewCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy             Profile               @relation("WeeklyReviewUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  adabScores            DormWeeklyAdabScore[]
-  violations            DormViolation[]
+  id                      String                @id @default(uuid()) @db.Uuid
+  academicYearId          String                @db.Uuid
+  semesterId              String                @db.Uuid
+  roomId                  String                @db.Uuid
+  weekStartDate           DateTime              @db.Date
+  adabSubmittedAt         DateTime?
+  violationsSubmittedAt   DateTime?
+  achievementsSubmittedAt DateTime?
+  createdById             String                @db.Uuid
+  updatedById             String                @db.Uuid
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  semester                Semester              @relation(fields: [academicYearId, semesterId], references: [academicYearId, id], onDelete: Restrict)
+  room                    Room                  @relation(fields: [semesterId, roomId], references: [semesterId, id], onDelete: Restrict)
+  createdBy               Profile               @relation("WeeklyReviewCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy               Profile               @relation("WeeklyReviewUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  adabScores              DormWeeklyAdabScore[]
+  violations              DormViolation[]
+  achievements            DormAchievement[]
 
   @@unique([semesterId, roomId, weekStartDate])
   @@unique([id, semesterId])
@@ -558,6 +605,20 @@ model DormViolation {
 
   @@index([studentId, reviewId])
   @@index([reviewId])
+}
+
+model DormAchievement {
+  id          String           @id @default(uuid()) @db.Uuid
+  reviewId    String           @db.Uuid
+  studentId   String           @db.Uuid
+  title       String           @db.VarChar(160)
+  description String?          @db.VarChar(500)
+  createdAt   DateTime         @default(now())
+  review      DormWeeklyReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([reviewId, studentId])
+  @@index([studentId, createdAt])
 }
 
 model DormAttendance {

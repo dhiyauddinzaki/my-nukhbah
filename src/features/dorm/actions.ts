@@ -74,6 +74,16 @@ const weeklySchema = z.discriminatedUnion("criterion", [
       pointsPerOccurrence: z.number().int().min(0).max(10000),
     })),
   }),
+  z.object({
+    criterion: z.literal("achievements"),
+    roomId: uuid,
+    weekStartDate: dateText,
+    entries: z.array(z.object({
+      studentId: uuid,
+      title: z.string().trim().min(1).max(160),
+      description: z.string().trim().max(500),
+    })).max(200),
+  }),
 ]);
 
 type DailyPayload = z.infer<typeof dailyPayload>;
@@ -379,7 +389,7 @@ export async function saveDormWeeklyCriterion(formData: FormData): Promise<{ ok:
           data: { adabSubmittedAt: submittedAt, updatedById: scope.profile.id },
         });
       });
-    } else {
+    } else if (payload.criterion === "violations") {
       const roster = new Set(scope.rosterIds);
       if (payload.entries.some((entry) => !roster.has(entry.studentId))) {
         throw new InputError("Ada pelanggaran yang terkait santri di luar kamar ini.");
@@ -396,6 +406,31 @@ export async function saveDormWeeklyCriterion(formData: FormData): Promise<{ ok:
           data: { violationsSubmittedAt: submittedAt, updatedById: scope.profile.id },
         }),
       ]);
+    } else {
+      const roster = new Set(scope.rosterIds);
+      if (payload.entries.some((entry) => !roster.has(entry.studentId))) {
+        throw new InputError("Ada prestasi yang terkait santri di luar kamar ini.");
+      }
+      await db.$transaction(async (tx) => {
+        await tx.dormAchievement.deleteMany({ where: { reviewId: review.id } });
+        if (payload.entries.length > 0) {
+          await tx.dormAchievement.createMany({
+            data: payload.entries.map((entry) => ({
+              reviewId: review.id,
+              studentId: entry.studentId,
+              title: entry.title,
+              description: entry.description || null,
+            })),
+          });
+        }
+        await tx.dormWeeklyReview.update({
+          where: { id: review.id },
+          data: {
+            achievementsSubmittedAt: submittedAt,
+            updatedById: scope.profile.id,
+          },
+        });
+      });
     }
 
     revalidatePath("/pembinaan");
