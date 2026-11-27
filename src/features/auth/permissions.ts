@@ -12,6 +12,7 @@ export const sections = {
   admin: { label: "Dashboard", title: "Dashboard Admin", roles: ["ADMIN"] },
   asrama: { label: "Asrama", title: "Rekap Asrama", roles: ["ADMIN", "KEPALA_ASRAMA", "MUSYRIF"] },
   pembinaan: { label: "Pembinaan", title: "Ruang Pembinaan", roles: ["ADMIN", "MUSYRIF"] },
+  mutamayyizun: { label: "Mutamayyizun", title: "Mutamayyizun", roles: ["ADMIN", "KEPALA_ASRAMA"] },
   ekstra: { label: "Ekstra", title: "Jurnal Ekstra", roles: ["ADMIN", "MUSYRIF"] },
   portfolio: { label: "Portfolio", title: "Portfolio Santri", roles: ["ADMIN", "MUSYRIF", "WALI_SANTRI"] },
   kalender: { label: "Kalender", title: "Kalender Akademik", roles: ["ADMIN", "MUSYRIF", "WALI_SANTRI"] },

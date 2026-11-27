@@ -302,6 +302,7 @@ export async function saveDormDailyCriterion(formData: FormData): Promise<{ ok: 
     revalidatePath("/pembinaan");
     revalidatePath("/asrama");
     revalidatePath("/portfolio");
+    revalidatePath("/mutamayyizun");
     return { ok: true, message: "Kriteria jurnal berhasil disimpan." };
   } catch (error) {
     if (error instanceof InputError) return { ok: false, message: error.message };
@@ -436,6 +437,7 @@ export async function saveDormWeeklyCriterion(formData: FormData): Promise<{ ok:
     revalidatePath("/pembinaan");
     revalidatePath("/asrama");
     revalidatePath("/portfolio");
+    revalidatePath("/mutamayyizun");
     return { ok: true, message: "Kriteria pekanan berhasil disimpan." };
   } catch (error) {
     if (error instanceof InputError) return { ok: false, message: error.message };

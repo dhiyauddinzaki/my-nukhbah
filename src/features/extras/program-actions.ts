@@ -177,6 +177,7 @@ export async function saveIntensiveWeeklyEntries(formData: FormData): Promise<{ 
     revalidatePath("/ekstra");
     revalidatePath("/asrama");
     revalidatePath("/portfolio");
+    revalidatePath("/mutamayyizun");
     return { ok: true, message: "Laporan Tahfizh Intensif berhasil disimpan." };
   } catch (error) {
     if (error instanceof z.ZodError) return { ok: false, message: "Periksa kembali data jurnal yang dikirim." };

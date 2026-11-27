@@ -151,6 +151,7 @@ export async function saveTahfidzEntries(formData: FormData): Promise<{ ok: bool
     revalidatePath("/pembinaan");
     revalidatePath("/asrama");
     revalidatePath("/portfolio");
+    revalidatePath("/mutamayyizun");
     return { ok: true, message: "Jurnal Tahfidz berhasil disimpan." };
   } catch (error) {
     if (error instanceof z.ZodError) {
